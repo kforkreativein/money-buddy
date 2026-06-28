@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Money Buddy — Feature Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #FFF7ED;
+  color: #1c1917;
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+header h1 { font-size: 1.8rem; font-weight: 900; }
+header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4px; }
+
+/* ── Add card form ── */
+.add-form {
+  max-width: 520px;
+  margin: 16px auto 28px;
+  background: linear-gradient(145deg,#fff,#f0ede8);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 5px 5px 10px rgba(0,0,0,.08),-3px -3px 8px rgba(255,255,255,.85);
+  border: 2px solid rgba(255,255,255,.65);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.add-form input, .add-form select {
+  background: white;
+  border: 2px solid rgba(0,0,0,.06);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: .9rem;
+  color: #1c1917;
+  outline: none;
+}
+.add-form input { flex: 1; min-width: 180px; }
+.add-form input::placeholder { color: #78716c; }
+.add-form select { min-width: 120px; }
+.add-form button {
+  background: linear-gradient(145deg,#c4b5fd,#a78bfa);
+  color: #4c1d95;
+  border: 2px solid rgba(255,255,255,.55);
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: .9rem;
+  cursor: pointer;
+  transition: transform .1s;
+  white-space: nowrap;
+}
+.add-form button:active { transform: scale(.95); }
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  font-size: .8rem;
+  font-weight: 700;
+  color: #78716c;
+}
+.legend span { display: flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-todo     { background: #94a3b8; }
+.dot-progress { background: #fbbf24; }
+.dot-done     { background: #34d399; }
+
+/* ── Board ── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+@media (max-width: 700px) {
+  .board { grid-template-columns: 1fr; }
+}
+
+.column {
+  border-radius: 20px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 320px;
+  transition: outline .15s;
+}
+.column.drag-over { outline: 3px dashed rgba(0,0,0,.25); outline-offset: -3px; }
+
+.col-todo     { background: linear-gradient(145deg,#e2e8f0,#cbd5e1); box-shadow: 5px 5px 12px rgba(0,0,0,.08),-3px -3px 8px rgba(255,255,255,.7); border: 2px solid rgba(255,255,255,.6); }
+.col-progress { background: linear-gradient(145deg,#fde68a,#fbbf24); box-shadow: 5px 5px 12px rgba(251,191,36,.25),-3px -3px 8px rgba(255,255,255,.7); border: 2px solid rgba(255,255,255,.6); }
+.col-done     { background: linear-gradient(145deg,#6ee7b7,#34d399); box-shadow: 5px 5px 12px rgba(52,211,153,.25),-3px -3px 8px rgba(255,255,255,.7); border: 2px solid rgba(255,255,255,.6); }
+
+.col-title {
+  font-size: .9rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgba(0,0,0,.08);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.col-count {
+  background: rgba(0,0,0,.12);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+/* ── Cards ── */
+.card {
+  background: rgba(255,255,255,.8);
+  border-radius: 14px;
+  padding: 11px 13px;
+  border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 3px 3px 8px rgba(0,0,0,.06),-2px -2px 6px rgba(255,255,255,.6);
+  cursor: grab;
+  transition: transform .15s, box-shadow .15s, opacity .15s;
+  user-select: none;
+}
+.card:active { cursor: grabbing; }
+.card.dragging { opacity: .4; transform: scale(.97); }
+.card:hover { transform: translateY(-2px); box-shadow: 5px 5px 14px rgba(0,0,0,.09),-3px -3px 8px rgba(255,255,255,.7); }
+
+.card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.card-title  { font-size: .88rem; font-weight: 800; color: #1c1917; line-height: 1.3; flex: 1; }
+.card-delete { background: none; border: none; cursor: pointer; font-size: .9rem; opacity: .4; padding: 2px; line-height: 1; transition: opacity .15s; }
+.card-delete:hover { opacity: .8; }
+.card-meta   { font-size: .73rem; font-weight: 600; color: #78716c; margin-top: 4px; }
+.card-tag {
+  display: inline-block;
+  font-size: .67rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(0,0,0,.07);
+  color: #44403c;
+  margin-top: 5px;
+}
+
+/* ── In-progress highlight ── */
+.col-progress .card { border-color: rgba(251,191,36,.4); }
+
+/* ── Empty column hint ── */
+.col-empty {
+  font-size: .8rem;
+  font-weight: 700;
+  color: rgba(0,0,0,.3);
+  text-align: center;
+  padding: 20px 0;
+  pointer-events: none;
+}
+
+/* ── In Progress badge ── */
+.in-progress-badge {
+  display: inline-block;
+  background: #fbbf24;
+  color: #78350f;
+  font-size: .65rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-left: 4px;
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .6; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💰 Money Buddy — Feature Tracker</h1>
+  <p>Drag cards between columns · Add new features below · Data saved in browser</p>
+</header>
+
+<!-- Add card form -->
+<form class="add-form" id="addForm">
+  <input type="text" id="cardTitle" placeholder="Feature name..." required />
+  <input type="text" id="cardMeta" placeholder="Notes (optional)" />
+  <select id="cardCol">
+    <option value="todo">Not Started</option>
+    <option value="progress">In Progress</option>
+    <option value="done">Completed</option>
+  </select>
+  <button type="submit">+ Add Card</button>
+</form>
+
+<div class="legend">
+  <span><div class="dot dot-todo"></div> Not Started</span>
+  <span><div class="dot dot-progress"></div> In Progress</span>
+  <span><div class="dot dot-done"></div> Completed</span>
+</div>
+
+<div class="board" id="board">
+  <div class="column col-todo"     id="col-todo"     data-col="todo">
+    <div class="col-title">⬜ Not Started <span class="col-count" id="cnt-todo">0</span></div>
+  </div>
+  <div class="column col-progress" id="col-progress" data-col="progress">
+    <div class="col-title">🔄 In Progress <span class="col-count" id="cnt-progress">0</span></div>
+  </div>
+  <div class="column col-done"     id="col-done"     data-col="done">
+    <div class="col-title">✅ Completed <span class="col-count" id="cnt-done">0</span></div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────
+const STORAGE_KEY = 'money_buddy_kanban';
+
+const DEFAULT_CARDS = [
+  // NOT STARTED
+  { id:'f1',  col:'todo', title:'Delete entry with undo option',          meta:'Show "undo" toast for 5s after deletion',  tag:'Feature' },
+  { id:'f2',  col:'todo', title:'Monthly summary view',                   meta:'Group entries by month, show totals',       tag:'Feature' },
+  { id:'f3',  col:'todo', title:'Export to CSV',                          meta:'Simple one-tap data export',               tag:'Feature' },
+  { id:'f4',  col:'todo', title:'Search & filter entries',                meta:'Search by description or date range',      tag:'Feature' },
+  { id:'f5',  col:'todo', title:'Recurring transactions',                 meta:'Auto-add salary, rent, subscriptions',     tag:'Feature' },
+  { id:'f6',  col:'todo', title:'Budget goal / spending limit',           meta:'Warn when monthly expense hits limit',     tag:'Feature' },
+  { id:'f7',  col:'todo', title:'Offline support (service worker)',       meta:'Full offline via next-pwa',                tag:'PWA' },
+  { id:'f8',  col:'todo', title:'Push notifications',                    meta:'Daily spending reminder',                  tag:'Platform' },
+  { id:'f9',  col:'todo', title:'Desktop view optimization',             meta:'Wider layout, sidebar for larger screens', tag:'UI/UX' },
+  { id:'f10', col:'todo', title:'Multiple wallets / accounts',           meta:'Separate cash, GPay, savings',             tag:'Feature' },
+  { id:'f11', col:'todo', title:'Spending insights chart',               meta:'Simple bar chart: income vs expense / month', tag:'Feature' },
+  { id:'f12', col:'todo', title:'Quick amount shortcuts',                meta:'Tap ₹100 ₹500 ₹1000 chips in form',       tag:'UI/UX' },
+  { id:'f13', col:'todo', title:'Currency / language localization',      meta:'Support for multiple Indian languages',    tag:'Feature' },
+  // COMPLETED
+  { id:'c1',  col:'done', title:'Next.js 16 + Tailwind v4 scaffold',    meta:'App Router, TypeScript',                   tag:'Setup' },
+  { id:'c2',  col:'done', title:'localStorage persistence',             meta:'No backend needed',                        tag:'Core' },
+  { id:'c3',  col:'done', title:'Add Income / Expense entry',           meta:'Amount, notes, payment mode, date',        tag:'Core' },
+  { id:'c4',  col:'done', title:'Edit any entry',                       meta:'Pre-filled form in bottom-sheet modal',    tag:'Core' },
+  { id:'c5',  col:'done', title:'Delete entry',                         meta:'Inline confirm — no browser alert',        tag:'Core' },
+  { id:'c6',  col:'done', title:'GPay (Yes Bank / HDFC) or Cash',       meta:'Conditional bank selector',               tag:'Core' },
+  { id:'c7',  col:'done', title:'Notes field — no categories',          meta:'Free-text, required',                      tag:'Core' },
+  { id:'c8',  col:'done', title:'Claymorphism design system',           meta:'.clay classes, gradients, shadows',        tag:'UI/UX' },
+  { id:'c9',  col:'done', title:'Nunito font + warm cream bg',          meta:'Joyful, approachable brand feel',          tag:'UI/UX' },
+  { id:'c10', col:'done', title:'Mobile-first layout + safe areas',     meta:'max-w-md, iOS safe-area-inset-bottom',     tag:'UI/UX' },
+  { id:'c11', col:'done', title:'5-step onboarding modal',              meta:'Shown once via localStorage flag',         tag:'UI/UX' },
+  { id:'c12', col:'done', title:'Hidden totals with eye toggle',        meta:'Per-card, default hidden like banking apps', tag:'UI/UX' },
+  { id:'c13', col:'done', title:'Profile name + Hey [Name] greeting',  meta:'localStorage, time-aware greeting',        tag:'UI/UX' },
+  { id:'c14', col:'done', title:'Income confetti (3 bursts, 5s)',       meta:'canvas-confetti, staggered bursts',        tag:'Effects' },
+  { id:'c15', col:'done', title:'Happy ascending income tones',         meta:'Web Audio API: C4→E4→G4→C5',              tag:'Effects' },
+  { id:'c16', col:'done', title:'Sad expense tones (6 levels)',         meta:'Level 1 (₹500) → Level 6 (₹3000+)',       tag:'Effects' },
+  { id:'c17', col:'done', title:'Emoji rain 💸😢 for big expenses (5s)', meta:'Scaled count by sadness level',           tag:'Effects' },
+  { id:'c18', col:'done', title:'Motivation banner (10s + tap dismiss)', meta:'10 random messages, aria-live',           tag:'Effects' },
+  { id:'c19', col:'done', title:'PWA manifest.json',                   meta:'Add to Home Screen on iOS Safari',         tag:'PWA' },
+  { id:'c20', col:'done', title:'?action=add URL param',               meta:'Auto-opens add form for Back Tap shortcut', tag:'PWA' },
+  { id:'c21', col:'done', title:'CLAUDE.md project instructions',      meta:'Stack, rules, how to update tracker',      tag:'Docs' },
+  { id:'c22', col:'done', title:'tracker.md feature list',             meta:'Markdown table with all 37+ features',     tag:'Docs' },
+  { id:'c23', col:'done', title:'tracker.html Kanban board',           meta:'Drag-drop, manual entries, auto-save',     tag:'Docs' },
+];
+
+function loadCards() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch { return null; }
+}
+
+function saveCards(cards) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+}
+
+let cards = loadCards() || DEFAULT_CARDS.map(c => ({ ...c }));
+
+// ── Render ─────────────────────────────────────────
+function render() {
+  const cols = { todo: [], progress: [], done: [] };
+  cards.forEach(c => { if (cols[c.col]) cols[c.col].push(c); });
+
+  ['todo', 'progress', 'done'].forEach(colId => {
+    const col = document.getElementById('col-' + colId);
+    // Remove existing cards (keep the title div)
+    [...col.querySelectorAll('.card, .col-empty')].forEach(el => el.remove());
+
+    const colCards = cols[colId];
+    document.getElementById('cnt-' + colId).textContent = colCards.length;
+
+    if (colCards.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'col-empty';
+      empty.textContent = colId === 'progress' ? 'Nothing in progress 🎉' : 'Drop cards here';
+      col.appendChild(empty);
+    } else {
+      colCards.forEach(card => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.draggable = true;
+        el.dataset.id = card.id;
+        el.innerHTML = `
+          <div class="card-header">
+            <div class="card-title">${escHtml(card.title)}</div>
+            <button class="card-delete" data-id="${card.id}" title="Delete card">✕</button>
+          </div>
+          ${card.meta ? `<div class="card-meta">${escHtml(card.meta)}</div>` : ''}
+          ${card.tag  ? `<div class="card-tag">${escHtml(card.tag)}</div>`   : ''}
+        `;
+        col.appendChild(el);
+      });
+    }
+  });
+
+  updateCounts();
+  scrollToInProgress();
+}
+
+function updateCounts() {
+  ['todo','progress','done'].forEach(id => {
+    const count = cards.filter(c => c.col === id).length;
+    document.getElementById('cnt-' + id).textContent = count;
+  });
+}
+
+// Auto-scroll to In Progress if it has cards (on load only)
+let didAutoScroll = false;
+function scrollToInProgress() {
+  if (didAutoScroll) return;
+  const inProgressCards = cards.filter(c => c.col === 'progress');
+  if (inProgressCards.length > 0) {
+    didAutoScroll = true;
+    setTimeout(() => {
+      const col = document.getElementById('col-progress');
+      col?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      col?.classList.add('drag-over');
+      setTimeout(() => col?.classList.remove('drag-over'), 1500);
+    }, 300);
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Drag & drop ────────────────────────────────────
+let dragId = null;
+
+document.addEventListener('dragstart', e => {
+  const card = e.target.closest('.card');
+  if (!card) return;
+  dragId = card.dataset.id;
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+});
+
+document.addEventListener('dragend', e => {
+  const card = e.target.closest('.card');
+  if (card) card.classList.remove('dragging');
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  dragId = null;
+});
+
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  const col = e.target.closest('.column');
+  if (!col) return;
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  col.classList.add('drag-over');
+  e.dataTransfer.dropEffect = 'move';
+});
+
+document.addEventListener('dragleave', e => {
+  const col = e.target.closest('.column');
+  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+});
+
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const col = e.target.closest('.column');
+  if (!col || !dragId) return;
+  col.classList.remove('drag-over');
+  const newCol = col.dataset.col;
+  const card = cards.find(c => c.id === dragId);
+  if (card && card.col !== newCol) {
+    card.col = newCol;
+    saveCards(cards);
+    render();
+  }
+});
+
+// ── Delete card ─────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.card-delete');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (confirm('Delete this card?')) {
+    cards = cards.filter(c => c.id !== id);
+    saveCards(cards);
+    render();
+  }
+});
+
+// ── Add card form ───────────────────────────────────
+document.getElementById('addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const title = document.getElementById('cardTitle').value.trim();
+  const meta  = document.getElementById('cardMeta').value.trim();
+  const col   = document.getElementById('cardCol').value;
+  if (!title) return;
+
+  const newCard = {
+    id:    'u' + Date.now(),
+    col,
+    title,
+    meta,
+    tag: '',
+  };
+  cards.push(newCard);
+  saveCards(cards);
+  render();
+
+  document.getElementById('cardTitle').value = '';
+  document.getElementById('cardMeta').value  = '';
+  document.getElementById('cardTitle').focus();
+});
+
+// ── Touch drag support (mobile) ─────────────────────
+let touchCard = null, touchClone = null, touchOffX = 0, touchOffY = 0;
+
+document.addEventListener('touchstart', e => {
+  const card = e.target.closest('.card');
+  if (!card) return;
+  const touch = e.touches[0];
+  const rect  = card.getBoundingClientRect();
+  touchOffX = touch.clientX - rect.left;
+  touchOffY = touch.clientY - rect.top;
+  dragId    = card.dataset.id;
+  touchCard = card;
+
+  touchClone = card.cloneNode(true);
+  touchClone.style.cssText = `position:fixed;pointer-events:none;z-index:1000;width:${rect.width}px;opacity:.85;transform:scale(1.04);transition:none;border-radius:14px;`;
+  document.body.appendChild(touchClone);
+  card.style.opacity = '.3';
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {
+  if (!touchClone) return;
+  const touch = e.touches[0];
+  touchClone.style.left = (touch.clientX - touchOffX) + 'px';
+  touchClone.style.top  = (touch.clientY - touchOffY) + 'px';
+
+  touchClone.style.display = 'none';
+  const under = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchClone.style.display = '';
+  const col = under?.closest('.column');
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  if (col) col.classList.add('drag-over');
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  if (!touchClone || !dragId) return;
+  const touch = e.changedTouches[0];
+  touchClone.style.display = 'none';
+  const under = document.elementFromPoint(touch.clientX, touch.clientY);
+  touchClone.style.display = '';
+  const col = under?.closest('.column');
+
+  if (col) {
+    const newCol = col.dataset.col;
+    const card = cards.find(c => c.id === dragId);
+    if (card && card.col !== newCol) { card.col = newCol; saveCards(cards); }
+  }
+
+  touchClone.remove();
+  if (touchCard) touchCard.style.opacity = '';
+  touchClone = null; touchCard = null; dragId = null;
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  render();
+});
+
+// ── Init ────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

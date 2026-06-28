@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background-color: #FFF7ED;
+  color: #1c1917;
+  min-height: 100dvh;
+}
+
+/* ── Claymorphism base ── */
+.clay {
+  border-radius: 20px;
+  background: linear-gradient(145deg, #ffffff, #f0ede8);
+  box-shadow: 5px 5px 10px rgba(0,0,0,0.10), -3px -3px 8px rgba(255,255,255,0.85);
+  border: 2px solid rgba(255,255,255,0.65);
+}
+.clay-green {
+  background: linear-gradient(145deg, #6ee7b7, #34d399);
+  box-shadow: 5px 5px 12px rgba(52,211,153,0.30), -3px -3px 8px rgba(255,255,255,0.70);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+}
+.clay-red {
+  background: linear-gradient(145deg, #fca5a5, #f87171);
+  box-shadow: 5px 5px 12px rgba(248,113,113,0.30), -3px -3px 8px rgba(255,255,255,0.70);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+}
+.clay-blue {
+  background: linear-gradient(145deg, #93c5fd, #60a5fa);
+  box-shadow: 5px 5px 12px rgba(96,165,250,0.30), -3px -3px 8px rgba(255,255,255,0.70);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+}
+.clay-yellow {
+  background: linear-gradient(145deg, #fde68a, #fbbf24);
+  box-shadow: 5px 5px 12px rgba(251,191,36,0.30), -3px -3px 8px rgba(255,255,255,0.70);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+}
+.clay-purple {
+  background: linear-gradient(145deg, #c4b5fd, #a78bfa);
+  box-shadow: 5px 5px 12px rgba(167,139,250,0.30), -3px -3px 8px rgba(255,255,255,0.70);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+}
+.clay-amber {
+  background: linear-gradient(145deg, #fed7aa, #fb923c);
+  box-shadow: 5px 5px 12px rgba(251,146,60,0.30), -3px -3px 8px rgba(255,255,255,0.70);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 20px;
+}
+
+/* ── Animations ── */
+@keyframes fall {
+  0%   { transform: translateY(-60px) rotate(0deg) scale(1);     opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(105vh) rotate(720deg) scale(0.6); opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(100px); opacity: 0; }
+}
+
+@keyframes pop-in {
+  0%   { transform: scale(0.85); opacity: 0; }
+  70%  { transform: scale(1.04); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes wiggle {
+  0%,100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-4deg); }
+  75%      { transform: rotate(4deg); }
+}
+
+@keyframes bounce-in {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.animate-fall       { animation: fall linear forwards; }
+.animate-slide-up   { animation: slide-up 0.35s ease-out forwards; }
+.animate-slide-down { animation: slide-down 0.35s ease-in forwards; }
+.animate-pop-in     { animation: pop-in 0.3s ease-out forwards; }
+.animate-wiggle     { animation: wiggle 0.5s ease-in-out; }
+.animate-bounce-in  { animation: bounce-in 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+/* ── Button press feel ── */
+.clay-btn {
+  transition: transform 0.1s, box-shadow 0.1s;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.clay-btn:active {
+  transform: scale(0.95) translateY(2px);
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Placeholder contrast (WCAG 4.5:1 on white) ── */
+::placeholder { color: #78716c; opacity: 1; }
+
+/* ── Safe area padding ── */
+.safe-bottom {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* ── Input base (no browser chrome) ── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* ── Date input styling ── */
+input[type="date"] { color-scheme: light; }
+
+/* ── Reduce motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fall, .animate-slide-up, .animate-slide-down,
+  .animate-pop-in, .animate-wiggle, .animate-bounce-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
