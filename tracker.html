@@ -94,6 +94,30 @@ header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4p
 }
 @media (max-width: 700px) {
   .board { grid-template-columns: 1fr; }
+  /* JS sets order via inline style when In Progress has items */
+}
+
+/* ── In Progress active glow (desktop: when it has cards) ── */
+.col-progress.has-items {
+  box-shadow: 0 0 0 3px #fbbf24, 5px 5px 20px rgba(251,191,36,.4), -3px -3px 8px rgba(255,255,255,.7);
+  transform: translateY(-2px);
+  transition: box-shadow .3s, transform .3s;
+}
+.col-progress.has-items .col-title {
+  font-size: 1rem;
+}
+/* Mobile: active column label */
+.col-progress.has-items::before {
+  content: '👀 You\'re working on this';
+  display: block;
+  font-size: .7rem;
+  font-weight: 900;
+  color: #92400e;
+  background: rgba(0,0,0,.1);
+  border-radius: 8px;
+  padding: 3px 8px;
+  margin-bottom: -2px;
+  width: fit-content;
 }
 
 .column {
@@ -325,7 +349,7 @@ function render() {
   });
 
   updateCounts();
-  scrollToInProgress();
+  prioritiseInProgress();
 }
 
 function updateCounts() {
@@ -335,19 +359,34 @@ function updateCounts() {
   });
 }
 
-// Auto-scroll to In Progress if it has cards (on load only)
+// Prioritise In Progress: glow on desktop, move to top on mobile
 let didAutoScroll = false;
-function scrollToInProgress() {
-  if (didAutoScroll) return;
-  const inProgressCards = cards.filter(c => c.col === 'progress');
-  if (inProgressCards.length > 0) {
-    didAutoScroll = true;
-    setTimeout(() => {
-      const col = document.getElementById('col-progress');
-      col?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      col?.classList.add('drag-over');
-      setTimeout(() => col?.classList.remove('drag-over'), 1500);
-    }, 300);
+function prioritiseInProgress() {
+  const hasItems = cards.filter(c => c.col === 'progress').length > 0;
+  const col = document.getElementById('col-progress');
+  const board = document.getElementById('board');
+
+  if (hasItems) {
+    col.classList.add('has-items');
+    const isMobile = window.innerWidth <= 700;
+    if (isMobile) {
+      // Physically reorder: In Progress first, then Not Started, then Done
+      board.prepend(col);
+      if (!didAutoScroll) {
+        didAutoScroll = true;
+        setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+      }
+    }
+  } else {
+    col.classList.remove('has-items');
+    // Restore natural order on desktop if nothing in progress
+    const todo = document.getElementById('col-todo');
+    const done = document.getElementById('col-done');
+    if (board.firstChild !== todo) {
+      board.prepend(todo);
+      board.appendChild(col);
+      board.appendChild(done);
+    }
   }
 }
 
@@ -493,6 +532,7 @@ document.addEventListener('touchend', e => {
 
 // ── Init ────────────────────────────────────────────
 render();
+window.addEventListener('resize', () => prioritiseInProgress());
 </script>
 </body>
 </html>
