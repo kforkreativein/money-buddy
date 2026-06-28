@@ -373,10 +373,12 @@ const SAVE_STATUS = document.getElementById('saveStatus');
 
 const DEFAULT_CARDS = [
   // NOT STARTED
-  { id:'f5',  col:'todo', title:'Recurring transactions',                 meta:'Auto-add salary, rent, subscriptions',     tag:'Feature' },
+  { id:'f5',  col:'done', title:'Recurring transactions',                 meta:'Toggle in form, auto-adds on app load, manage rules',  tag:'Feature' },
   { id:'f7',  col:'todo', title:'Offline support (service worker)',       meta:'Full offline via next-pwa',                tag:'PWA' },
   { id:'f8',  col:'todo', title:'Push notifications',                    meta:'Daily spending reminder',                  tag:'Platform' },
-  { id:'f10', col:'todo', title:'Multiple wallets / accounts',           meta:'Separate cash, GPay, savings',             tag:'Feature' },
+  { id:'f10', col:'done', title:'Multiple wallets / accounts',           meta:'Wallet picker in form, WalletBar with net balances + opening balance', tag:'Feature' },
+  { id:'f14', col:'done', title:'Filter by wallet',                      meta:'Tap wallet card to filter transaction list, clear filter button', tag:'Feature' },
+  { id:'f15', col:'done', title:'Net balance / savings',                meta:'Income − expense shown below stats cards, eye toggle', tag:'Feature' },
   { id:'f13', col:'todo', title:'Currency / language localization',      meta:'Support for multiple Indian languages',    tag:'Feature' },
   // COMPLETED
   { id:'c1',  col:'done', title:'Next.js 16 + Tailwind v4 scaffold',    meta:'App Router, TypeScript',                   tag:'Setup' },

@@ -1,6 +1,8 @@
 'use client';
-import { useState } from 'react';
-import { Transaction, TxType, PaymentMode, Bank } from '@/lib/types';
+import { useState, useEffect } from 'react';
+import { Transaction, TxType, Frequency, Wallet } from '@/lib/types';
+import { getWallets, addWallet, legacyWalletId, walletToPaymentMode } from '@/lib/wallets';
+import { addRule } from '@/lib/recurring';
 
 interface Props {
   initial?: Transaction;
@@ -10,26 +12,78 @@ interface Props {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const FREQ_LABELS: Record<Frequency, string> = {
+  daily: '📅 Daily',
+  weekly: '📆 Weekly',
+  monthly: '🗓️ Monthly',
+};
+
 export default function TransactionForm({ initial, onSave, onCancel }: Props) {
   const [type, setType] = useState<TxType>(initial?.type ?? 'expense');
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>(initial?.paymentMode ?? 'gpay');
-  const [bank, setBank] = useState<Bank>(initial?.bank ?? 'hdfc');
   const [date, setDate] = useState(initial?.date ?? today());
   const [error, setError] = useState('');
+
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [walletId, setWalletId] = useState<string>('');
+  const [showAddWallet, setShowAddWallet] = useState(false);
+  const [newWalletName, setNewWalletName] = useState('');
+  const [newWalletEmoji, setNewWalletEmoji] = useState('💳');
+
+  const [recurring, setRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<Frequency>('monthly');
+
+  useEffect(() => {
+    const ws = getWallets();
+    setWallets(ws);
+    const defaultId = initial?.walletId ?? legacyWalletId(initial?.paymentMode ?? 'gpay', initial?.bank);
+    setWalletId(defaultId);
+  }, [initial?.walletId, initial?.paymentMode, initial?.bank]);
+
+  function handleAddWallet() {
+    const name = newWalletName.trim();
+    if (!name) return;
+    const w = addWallet({ name, emoji: newWalletEmoji });
+    const ws = getWallets();
+    setWallets(ws);
+    setWalletId(w.id);
+    setNewWalletName('');
+    setNewWalletEmoji('💳');
+    setShowAddWallet(false);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amt = parseInt(amount, 10);
     if (!amt || amt <= 0) { setError('Please enter a valid amount'); return; }
+    if (!walletId) { setError('Please select a wallet'); return; }
     setError('');
-    onSave({
+
+    const pm = walletToPaymentMode(walletId);
+    const txn: Transaction = {
       id: initial?.id ?? crypto.randomUUID(),
-      type, amount: amt, description: description.trim(),
-      paymentMode, bank: paymentMode === 'gpay' ? bank : undefined,
-      date, createdAt: initial?.createdAt ?? Date.now(),
-    });
+      type, amount: amt,
+      description: description.trim(),
+      walletId,
+      paymentMode: pm.paymentMode,
+      bank: pm.bank,
+      date,
+      createdAt: initial?.createdAt ?? Date.now(),
+    };
+    onSave(txn);
+
+    // Save recurring rule — nextDue is the first occurrence AFTER this one
+    if (recurring && !initial) {
+      const nextDue = (() => {
+        const d = new Date(date);
+        if (frequency === 'daily') d.setDate(d.getDate() + 1);
+        else if (frequency === 'weekly') d.setDate(d.getDate() + 7);
+        else d.setMonth(d.getMonth() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      addRule({ id: crypto.randomUUID(), type, amount: amt, description: description.trim(), walletId, frequency, nextDue });
+    }
   }
 
   const isEdit = !!initial;
@@ -88,40 +142,75 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none resize-none placeholder:text-stone-400"
       />
 
-      {/* Payment mode */}
-      <div className="flex gap-2">
-        {(['gpay', 'cash'] as PaymentMode[]).map(m => (
-          <button key={m} type="button"
-            onClick={() => setPaymentMode(m)}
-            className={`clay-btn flex-1 py-3 rounded-[14px] font-bold text-base transition-all ${
-              paymentMode === m
-                ? m === 'gpay' ? 'clay-blue text-blue-900' : 'clay-yellow text-yellow-900'
-                : 'bg-stone-100 text-stone-400 shadow-none border border-stone-200'
-            }`}>
-            {m === 'gpay' ? '📱 GPay' : '💵 Cash'}
-          </button>
-        ))}
-      </div>
-
-      {/* Bank (GPay only) */}
-      {paymentMode === 'gpay' && (
-        <div className="flex gap-2">
-          {([['yes_bank', '🏦 Yes Bank'], ['hdfc', '🏦 HDFC']] as [Bank, string][]).map(([b, label]) => (
-            <button key={b} type="button"
-              onClick={() => setBank(b)}
-              className={`clay-btn flex-1 py-2.5 rounded-[14px] font-bold text-sm transition-all ${
-                bank === b ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-400 shadow-none border border-stone-200'
+      {/* Wallet picker */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-black text-stone-400 uppercase tracking-wider">Wallet</span>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+          {wallets.map(w => (
+            <button key={w.id} type="button"
+              onClick={() => setWalletId(w.id)}
+              className={`clay-btn flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[12px] font-bold text-sm transition-all ${
+                walletId === w.id ? 'clay-blue text-blue-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
               }`}>
-              {label}
+              <span>{w.emoji}</span>
+              <span className="whitespace-nowrap">{w.name}</span>
             </button>
           ))}
+          <button type="button"
+            onClick={() => setShowAddWallet(v => !v)}
+            className="clay-btn flex-shrink-0 px-3 py-2 rounded-[12px] font-bold text-sm text-violet-600 bg-white/70 border border-violet-200 whitespace-nowrap">
+            + New
+          </button>
         </div>
-      )}
+        {showAddWallet && (
+          <div className="clay animate-pop-in p-3 flex gap-2">
+            <input value={newWalletEmoji} onChange={e => setNewWalletEmoji(e.target.value)}
+              className="clay w-12 text-center text-lg bg-transparent outline-none" maxLength={2} />
+            <input value={newWalletName} onChange={e => setNewWalletName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddWallet()}
+              placeholder="Wallet name"
+              className="clay flex-1 px-3 py-1.5 text-sm font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400" />
+            <button type="button" onClick={handleAddWallet} disabled={!newWalletName.trim()}
+              className="clay-btn bg-violet-500 text-white font-black text-xs px-3 rounded-[10px] disabled:opacity-40">
+              Add
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Date */}
       <input type="date" value={date} onChange={e => setDate(e.target.value)}
         className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none"
       />
+
+      {/* Recurring toggle (new entries only) */}
+      {!isEdit && (
+        <div className="flex flex-col gap-2">
+          <button type="button"
+            onClick={() => setRecurring(v => !v)}
+            className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm transition-all ${
+              recurring ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+            }`}>
+            <span>🔄 Make this recurring</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-black ${recurring ? 'bg-violet-200 text-violet-800' : 'bg-stone-200 text-stone-400'}`}>
+              {recurring ? 'ON' : 'OFF'}
+            </span>
+          </button>
+          {recurring && (
+            <div className="flex gap-2 animate-pop-in">
+              {(['daily', 'weekly', 'monthly'] as Frequency[]).map(f => (
+                <button key={f} type="button"
+                  onClick={() => setFrequency(f)}
+                  className={`clay-btn flex-1 py-2 rounded-[12px] font-bold text-xs transition-all ${
+                    frequency === f ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-400 border border-stone-200 shadow-none'
+                  }`}>
+                  {FREQ_LABELS[f]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <p className="text-red-500 font-bold text-sm text-center">{error}</p>}
 

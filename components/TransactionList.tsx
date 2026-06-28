@@ -1,9 +1,16 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Transaction } from '@/lib/types';
+import { Transaction, Wallet } from '@/lib/types';
+import { getWallets, legacyWalletId } from '@/lib/wallets';
 import TransactionForm from './TransactionForm';
 
-const BANK_LABEL: Record<string, string> = { yes_bank: 'Yes Bank', hdfc: 'HDFC' };
+function walletLabel(t: Transaction, wallets: Wallet[]): { emoji: string; name: string } {
+  const id = t.walletId ?? legacyWalletId(t.paymentMode, t.bank);
+  const w = wallets.find(w => w.id === id);
+  if (w) return { emoji: w.emoji, name: w.name };
+  // ultimate fallback for very old data
+  return { emoji: t.paymentMode === 'gpay' ? '📱' : '💵', name: t.paymentMode === 'gpay' ? 'GPay' : 'Cash' };
+}
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -27,14 +34,22 @@ export default function TransactionList({
   transactions,
   onUpdate,
   onDelete,
+  walletFilter,
 }: {
   transactions: Transaction[];
   onUpdate: (txn: Transaction) => void;
   onDelete: (id: string) => void;
+  walletFilter?: string | null;
 }) {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
   const [pendingDelete, setPendingDelete] = useState<{ txn: Transaction } | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const PAGE = 5;
+
+  useEffect(() => { setWallets(getWallets()); }, [transactions]);
+  useEffect(() => { setShowAll(false); }, [walletFilter]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
@@ -59,6 +74,7 @@ export default function TransactionList({
 
   const sorted = [...transactions]
     .filter(t => t.id !== pendingDelete?.txn.id)
+    .filter(t => !walletFilter || (t.walletId ?? legacyWalletId(t.paymentMode, t.bank)) === walletFilter)
     .sort((a, b) => b.createdAt - a.createdAt);
 
   const q = search.trim().toLowerCase();
@@ -70,9 +86,12 @@ export default function TransactionList({
       )
     : sorted;
 
+  const visible = showAll ? filtered : filtered.slice(0, PAGE);
+  const hasMore = filtered.length > PAGE;
+
   // Group by month
   const groups: { key: string; txns: Transaction[] }[] = [];
-  for (const txn of filtered) {
+  for (const txn of visible) {
     const key = monthKey(txn.date);
     const last = groups[groups.length - 1];
     if (last?.key === key) last.txns.push(txn);
@@ -87,7 +106,7 @@ export default function TransactionList({
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setShowAll(false); }}
           placeholder="Search entries..."
           className="flex-1 bg-transparent outline-none font-semibold text-stone-700 placeholder:text-stone-400 text-sm"
         />
@@ -152,9 +171,11 @@ export default function TransactionList({
                       }
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-stone-500 font-semibold">{fmtDate(txn.date)}</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${txn.paymentMode === 'gpay' ? 'clay-blue text-blue-900' : 'clay-yellow text-yellow-900'}`}>
-                          {txn.paymentMode === 'gpay' ? `📱 ${BANK_LABEL[txn.bank ?? '']}` : '💵 Cash'}
-                        </span>
+                        {(() => { const wl = walletLabel(txn, wallets); return (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full clay-blue text-blue-900">
+                            {wl.emoji} {wl.name}
+                          </span>
+                        ); })()}
                       </div>
                     </div>
 
@@ -181,6 +202,15 @@ export default function TransactionList({
             );
           })}
         </div>
+      )}
+
+      {/* Show more / less */}
+      {hasMore && (
+        <button
+          onClick={() => setShowAll(v => !v)}
+          className="clay-btn clay w-full py-3 font-black text-stone-600 text-sm text-center">
+          {showAll ? '▲ Show less' : `▼ Show ${filtered.length - PAGE} more`}
+        </button>
       )}
 
       {/* Edit modal */}

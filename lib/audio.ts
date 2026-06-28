@@ -16,7 +16,7 @@ function playTones(freqs: number[], duration = 0.15, tempo = 1) {
     osc.frequency.value = freq;
     const start = ctx.currentTime + i * duration * tempo;
     gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.3, start + 0.02);
+    gain.gain.linearRampToValueAtTime(0.15, start + 0.02);
     gain.gain.linearRampToValueAtTime(0, start + duration * tempo - 0.02);
     osc.start(start);
     osc.stop(start + duration * tempo);

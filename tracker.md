@@ -80,7 +80,9 @@
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 38 | Recurring transactions | ⬜ Not Started | Auto-add salary, rent — needs scheduler logic |
-| 39 | Multiple wallets / accounts | ⬜ Not Started | Major data model change |
-| 40 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
-| 41 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |
+| 38 | Recurring transactions | ✅ Completed | Toggle in form, frequency picker, auto-adds on load, manage via RecurringManager |
+| 39 | Multiple wallets / accounts | ✅ Completed | Wallet picker in form, WalletBar with net balances + opening balance, add/delete custom wallets |
+| 40 | Filter by wallet | ✅ Completed | Tap wallet card to filter transactions list, ✕ Clear filter button |
+| 41 | Net balance / savings | ✅ Completed | Income − expense shown below stats cards, hidden by default with eye toggle |
+| 42 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
+| 43 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |
