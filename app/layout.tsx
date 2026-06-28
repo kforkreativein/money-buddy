@@ -8,6 +8,13 @@ export const metadata: Metadata = {
   title: "Money Buddy 💰",
   description: "Your simple & joyful expense tracker",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/money-buddy-logo.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -26,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={nunito.className}>
       <head>
+        <link rel="icon" href="/money-buddy-logo.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body>{children}</body>

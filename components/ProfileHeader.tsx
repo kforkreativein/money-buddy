@@ -1,8 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-const GREETINGS = ['Hey', 'Hello', 'Hiya', 'Welcome back,', 'Good to see you,'];
-
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -17,7 +15,7 @@ export default function ProfileHeader() {
 
   useEffect(() => {
     const saved = localStorage.getItem('money_buddy_name');
-    if (saved) setName(saved);
+    if (saved) queueMicrotask(() => setName(saved));
   }, []);
 
   function saveName() {
@@ -35,7 +33,7 @@ export default function ProfileHeader() {
         style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)' }}>
         <div className="clay animate-bounce-in w-full max-w-sm p-7 flex flex-col items-center gap-5 text-center">
           <span className="text-5xl">👋</span>
-          <h2 className="text-2xl font-black text-stone-800">What's your name?</h2>
+          <h2 className="text-2xl font-black text-stone-800">What&apos;s your name?</h2>
           <p className="text-sm font-semibold text-stone-500">So I can greet you properly!</p>
           <input
             type="text"
@@ -49,7 +47,7 @@ export default function ProfileHeader() {
           <button onClick={saveName}
             disabled={!draft.trim()}
             className="clay-btn w-full py-3 rounded-[16px] font-black text-white text-base bg-violet-500 shadow-lg disabled:opacity-40">
-            Let's go! 🚀
+            Let&apos;s go! 🚀
           </button>
         </div>
       </div>
@@ -58,12 +56,23 @@ export default function ProfileHeader() {
 
   return (
     <div className="flex items-center justify-between">
-      <div>
-        <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">{getGreeting()}</p>
-        <h1 className="text-2xl font-black text-stone-800 leading-tight">
-          Hey {name}! <span className="text-xl">💰</span>
-        </h1>
-        <p className="text-xs font-semibold text-stone-400 mt-0.5">Money Buddy</p>
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          style={{
+            backgroundImage: 'url(/money-buddy-logo.svg)',
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+          }}
+          className="h-[52px] w-[52px] shrink-0 rounded-[18px] shadow-[5px_5px_12px_rgba(0,0,0,0.10),-3px_-3px_8px_rgba(255,255,255,0.85)]"
+        />
+        <div>
+          <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">{getGreeting()}</p>
+          <h1 className="text-2xl font-black text-stone-800 leading-tight">
+            Hey {name}!
+          </h1>
+          <p className="text-xs font-semibold text-stone-400 mt-0.5">Money Buddy</p>
+        </div>
       </div>
       <button
         onClick={() => { setDraft(name ?? ''); setEditing(true); setName(null); }}

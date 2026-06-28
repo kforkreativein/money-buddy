@@ -67,6 +67,19 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         />
       </div>
 
+      {/* Quick amount chips */}
+      <div className="flex gap-2 flex-wrap">
+        {[100, 500, 1000, 2000].map(v => (
+          <button key={v} type="button"
+            onClick={() => setAmount(String(v))}
+            className={`clay-btn px-3 py-1.5 rounded-[10px] font-bold text-sm transition-all ${
+              amount === String(v) ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+            }`}>
+            ₹{v}
+          </button>
+        ))}
+      </div>
+
       {/* Description */}
       <textarea
         value={description} onChange={e => setDescription(e.target.value)}

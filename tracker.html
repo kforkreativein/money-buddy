@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Money Buddy — Feature Tracker</title>
+<link rel="icon" href="public/money-buddy-logo.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="public/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
@@ -21,6 +23,18 @@ body {
 header {
   text-align: center;
   margin-bottom: 8px;
+}
+header .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+header .brand-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  box-shadow: 5px 5px 10px rgba(0,0,0,.10), -3px -3px 8px rgba(255,255,255,.85);
 }
 header h1 { font-size: 1.8rem; font-weight: 900; }
 header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4px; }
@@ -174,6 +188,50 @@ header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4p
 .card-delete { background: none; border: none; cursor: pointer; font-size: .9rem; opacity: .4; padding: 2px; line-height: 1; transition: opacity .15s; }
 .card-delete:hover { opacity: .8; }
 .card-meta   { font-size: .73rem; font-weight: 600; color: #78716c; margin-top: 4px; }
+.card-edit-hint { font-size: .65rem; font-weight: 700; color: #a8a29e; margin-top: 5px; display: none; }
+.card:hover .card-edit-hint { display: block; }
+
+/* ── Inline edit mode ── */
+.card.editing { cursor: default; outline: 2px solid #a78bfa; outline-offset: 1px; }
+.card.editing:hover { transform: none; }
+.card-edit-input {
+  width: 100%;
+  background: rgba(255,255,255,.9);
+  border: 2px solid #a78bfa;
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: .88rem;
+  color: #1c1917;
+  outline: none;
+  resize: none;
+}
+.card-edit-meta {
+  font-size: .75rem;
+  font-weight: 600;
+  margin-top: 4px;
+  color: #78716c;
+}
+.card-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.card-edit-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 0;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: transform .1s;
+}
+.card-edit-actions button:active { transform: scale(.95); }
+.btn-save   { background: #a78bfa; color: #fff; }
+.btn-cancel { background: rgba(0,0,0,.07); color: #44403c; }
 .card-tag {
   display: inline-block;
   font-size: .67rem;
@@ -261,7 +319,10 @@ header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4p
 <body>
 
 <header>
-  <h1>💰 Money Buddy — Feature Tracker</h1>
+  <div class="brand">
+    <img class="brand-logo" src="public/money-buddy-logo.svg" alt="" />
+    <h1>Money Buddy — Feature Tracker</h1>
+  </div>
   <p>Drag cards between columns · Add new features below · Data saved in browser</p>
 </header>
 
@@ -312,27 +373,27 @@ const SAVE_STATUS = document.getElementById('saveStatus');
 
 const DEFAULT_CARDS = [
   // NOT STARTED
-  { id:'f1',  col:'todo', title:'Delete entry with undo option',          meta:'Show "undo" toast for 5s after deletion',  tag:'Feature' },
-  { id:'f2',  col:'todo', title:'Monthly summary view',                   meta:'Group entries by month, show totals',       tag:'Feature' },
-  { id:'f3',  col:'todo', title:'Export to CSV',                          meta:'Simple one-tap data export',               tag:'Feature' },
-  { id:'f4',  col:'todo', title:'Search & filter entries',                meta:'Search by description or date range',      tag:'Feature' },
   { id:'f5',  col:'todo', title:'Recurring transactions',                 meta:'Auto-add salary, rent, subscriptions',     tag:'Feature' },
-  { id:'f6',  col:'todo', title:'Budget goal / spending limit',           meta:'Warn when monthly expense hits limit',     tag:'Feature' },
   { id:'f7',  col:'todo', title:'Offline support (service worker)',       meta:'Full offline via next-pwa',                tag:'PWA' },
   { id:'f8',  col:'todo', title:'Push notifications',                    meta:'Daily spending reminder',                  tag:'Platform' },
-  { id:'f9',  col:'todo', title:'Desktop view optimization',             meta:'Wider layout, sidebar for larger screens', tag:'UI/UX' },
   { id:'f10', col:'todo', title:'Multiple wallets / accounts',           meta:'Separate cash, GPay, savings',             tag:'Feature' },
-  { id:'f11', col:'todo', title:'Spending insights chart',               meta:'Simple bar chart: income vs expense / month', tag:'Feature' },
-  { id:'f12', col:'todo', title:'Quick amount shortcuts',                meta:'Tap ₹100 ₹500 ₹1000 chips in form',       tag:'UI/UX' },
   { id:'f13', col:'todo', title:'Currency / language localization',      meta:'Support for multiple Indian languages',    tag:'Feature' },
   // COMPLETED
   { id:'c1',  col:'done', title:'Next.js 16 + Tailwind v4 scaffold',    meta:'App Router, TypeScript',                   tag:'Setup' },
   { id:'c2',  col:'done', title:'localStorage persistence',             meta:'No backend needed',                        tag:'Core' },
   { id:'c3',  col:'done', title:'Add Income / Expense entry',           meta:'Amount, notes, payment mode, date',        tag:'Core' },
   { id:'c4',  col:'done', title:'Edit any entry',                       meta:'Pre-filled form in bottom-sheet modal',    tag:'Core' },
-  { id:'c5',  col:'done', title:'Delete entry',                         meta:'Inline confirm — no browser alert',        tag:'Core' },
+  { id:'c5',  col:'done', title:'Delete entry with undo',               meta:'Immediate delete + 5s undo toast',         tag:'Core' },
   { id:'c6',  col:'done', title:'GPay (Yes Bank / HDFC) or Cash',       meta:'Conditional bank selector',               tag:'Core' },
-  { id:'c7',  col:'done', title:'Notes field — no categories',          meta:'Free-text, required',                      tag:'Core' },
+  { id:'c7',  col:'done', title:'Notes field — no categories',          meta:'Free-text, optional',                      tag:'Core' },
+  { id:'f1',  col:'done', title:'Delete entry with undo option',        meta:'5s undo toast, no confirm dialog',         tag:'Feature' },
+  { id:'f2',  col:'done', title:'Monthly summary view',                  meta:'Grouped by month with totals per group',   tag:'Feature' },
+  { id:'f3',  col:'done', title:'Export to CSV',                         meta:'One-tap download, all transactions',       tag:'Feature' },
+  { id:'f4',  col:'done', title:'Search & filter entries',               meta:'Search by description, date, or amount',  tag:'Feature' },
+  { id:'f6',  col:'done', title:'Budget goal / spending limit',          meta:'Monthly limit + progress bar + alert',     tag:'Feature' },
+  { id:'f9',  col:'done', title:'Desktop view optimization',            meta:'2-column layout on large screens',         tag:'UI/UX' },
+  { id:'f11', col:'done', title:'Spending insights chart',              meta:'4-month bar chart, income vs expense',     tag:'Feature' },
+  { id:'f12', col:'done', title:'Quick amount shortcuts',               meta:'₹100 / ₹500 / ₹1000 / ₹2000 chips',      tag:'UI/UX' },
   { id:'c8',  col:'done', title:'Claymorphism design system',           meta:'.clay classes, gradients, shadows',        tag:'UI/UX' },
   { id:'c9',  col:'done', title:'Nunito font + warm cream bg',          meta:'Joyful, approachable brand feel',          tag:'UI/UX' },
   { id:'c10', col:'done', title:'Mobile-first layout + safe areas',     meta:'max-w-md, iOS safe-area-inset-bottom',     tag:'UI/UX' },
@@ -428,6 +489,7 @@ function render() {
           </div>
           ${card.meta ? `<div class="card-meta">${escHtml(card.meta)}</div>` : ''}
           ${card.tag  ? `<div class="card-tag">${escHtml(card.tag)}</div>`   : ''}
+          <div class="card-edit-hint">✏️ double-tap to edit</div>
         `;
         col.appendChild(el);
       });
@@ -537,6 +599,78 @@ document.addEventListener('click', e => {
     render();
   }
 });
+
+// ── Inline edit (double-click / double-tap) ──────────
+function openEdit(el) {
+  if (el.classList.contains('editing')) return;
+  const id = el.dataset.id;
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+
+  el.classList.add('editing');
+  el.draggable = false;
+  el.innerHTML = `
+    <textarea class="card-edit-input" id="ei-title" rows="2">${escHtml(card.title)}</textarea>
+    <textarea class="card-edit-input card-edit-meta" id="ei-meta" rows="1" placeholder="Notes (optional)">${escHtml(card.meta || '')}</textarea>
+    <div class="card-edit-actions">
+      <button class="btn-save" data-id="${id}">Save</button>
+      <button class="btn-cancel" data-id="${id}">Cancel</button>
+    </div>
+  `;
+  el.querySelector('#ei-title').focus();
+
+  // Save on Ctrl/Cmd+Enter inside textarea
+  el.querySelector('#ei-title').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveEdit(el, id);
+    if (e.key === 'Escape') render();
+  });
+  el.querySelector('#ei-meta').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveEdit(el, id);
+    if (e.key === 'Escape') render();
+  });
+}
+
+function saveEdit(el, id) {
+  const title = el.querySelector('#ei-title')?.value.trim();
+  const meta  = el.querySelector('#ei-meta')?.value.trim();
+  if (!title) return;
+  const card = cards.find(c => c.id === id);
+  if (card) { card.title = title; card.meta = meta || ''; }
+  saveCards(cards);
+  render();
+}
+
+// Double-click (desktop)
+document.addEventListener('dblclick', e => {
+  const card = e.target.closest('.card');
+  if (!card || e.target.closest('.card-delete') || e.target.closest('.card-edit-actions')) return;
+  openEdit(card);
+});
+
+// Save / Cancel button clicks inside edit mode
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('btn-save')) {
+    const el = e.target.closest('.card');
+    saveEdit(el, e.target.dataset.id);
+  }
+  if (e.target.classList.contains('btn-cancel')) {
+    render();
+  }
+});
+
+// Double-tap (mobile): track two taps within 350ms
+let lastTap = 0, lastTapEl = null;
+document.addEventListener('touchend', e => {
+  const card = e.target.closest('.card');
+  if (!card || e.target.closest('.card-delete') || e.target.closest('.card-edit-actions')) return;
+  const now = Date.now();
+  if (now - lastTap < 350 && lastTapEl === card) {
+    e.preventDefault();
+    openEdit(card);
+  }
+  lastTap = now;
+  lastTapEl = card;
+}, { passive: false });
 
 // ── Add card form ───────────────────────────────────
 document.getElementById('addForm').addEventListener('submit', e => {

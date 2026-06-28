@@ -9,6 +9,7 @@ import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import EffectsLayer from '@/components/EffectsLayer';
 import ProfileHeader from '@/components/ProfileHeader';
+import InsightsChart from '@/components/InsightsChart';
 
 type EffectTrigger = { type: 'income' | 'expense'; amount: number; key: number } | null;
 
@@ -18,7 +19,6 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [effectTrigger, setEffectTrigger] = useState<EffectTrigger>(null);
 
-  // Load from localStorage; support ?action=add for iOS Back Tap shortcut
   useEffect(() => {
     setTransactions(getTransactions());
     if (!localStorage.getItem('onboarding_done')) {
@@ -58,30 +58,38 @@ export default function Home() {
 
   return (
     <main className="min-h-dvh" style={{ background: '#FFF7ED' }}>
-      <div className="max-w-md mx-auto px-4 pt-6 flex flex-col gap-5"
-        style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 2rem))' }}>
+      <div
+        className="max-w-5xl mx-auto px-4 pt-6"
+        style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 2rem))' }}
+      >
+        {/* Desktop: 2-column. Mobile: single column */}
+        <div className="flex flex-col lg:flex-row lg:items-start gap-5">
 
-        {/* Profile greeting */}
-        <ProfileHeader />
+          {/* Left panel: profile + stats + form */}
+          <div className="flex flex-col gap-5 lg:w-80 lg:shrink-0 lg:sticky lg:top-6">
+            <ProfileHeader />
+            <StatsBar transactions={transactions} />
 
-        {/* Stats */}
-        <StatsBar transactions={transactions} />
-
-        {/* Add button or inline form */}
-        {showForm ? (
-          <div className="animate-pop-in">
-            <TransactionForm onSave={handleSave} onCancel={() => setShowForm(false)} />
+            {showForm ? (
+              <div className="animate-pop-in">
+                <TransactionForm onSave={handleSave} onCancel={() => setShowForm(false)} />
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowForm(true)}
+                className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center">
+                ➕ Add Income / Expense
+              </button>
+            )}
           </div>
-        ) : (
-          <button
-            onClick={() => setShowForm(true)}
-            className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center">
-            ➕ Add Income / Expense
-          </button>
-        )}
 
-        {/* Transaction list */}
-        <TransactionList transactions={transactions} onUpdate={handleUpdate} onDelete={handleDelete} />
+          {/* Right panel: chart + transaction list */}
+          <div className="flex-1 flex flex-col gap-5 min-w-0">
+            <InsightsChart transactions={transactions} />
+            <TransactionList transactions={transactions} onUpdate={handleUpdate} onDelete={handleDelete} />
+          </div>
+
+        </div>
       </div>
 
       <EffectsLayer trigger={effectTrigger} />
