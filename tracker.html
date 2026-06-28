@@ -198,6 +198,48 @@ header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4p
   pointer-events: none;
 }
 
+/* ── Toolbar ── */
+.toolbar {
+  max-width: 1100px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.backup-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.save-status {
+  font-size: .75rem;
+  font-weight: 800;
+  color: #059669;
+  background: #d1fae5;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+.save-status.dirty {
+  color: #92400e;
+  background: #fef3c7;
+}
+.backup-btn {
+  background: white;
+  border: 2px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  padding: 5px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: .75rem;
+  color: #44403c;
+  cursor: pointer;
+  transition: transform .1s;
+}
+.backup-btn:active { transform: scale(.95); }
+
 /* ── In Progress badge ── */
 .in-progress-badge {
   display: inline-block;
@@ -235,10 +277,20 @@ header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4p
   <button type="submit">+ Add Card</button>
 </form>
 
-<div class="legend">
-  <span><div class="dot dot-todo"></div> Not Started</span>
-  <span><div class="dot dot-progress"></div> In Progress</span>
-  <span><div class="dot dot-done"></div> Completed</span>
+<div class="toolbar">
+  <div class="legend">
+    <span><div class="dot dot-todo"></div> Not Started</span>
+    <span><div class="dot dot-progress"></div> In Progress</span>
+    <span><div class="dot dot-done"></div> Completed</span>
+  </div>
+  <div class="backup-bar">
+    <span id="saveStatus" class="save-status">✓ Auto-saved</span>
+    <button onclick="exportData()" class="backup-btn">⬇ Export backup</button>
+    <label class="backup-btn" style="cursor:pointer">
+      ⬆ Import backup
+      <input type="file" accept=".json" onchange="importData(event)" style="display:none" />
+    </label>
+  </div>
 </div>
 
 <div class="board" id="board">
@@ -256,6 +308,7 @@ header p  { font-size: 0.85rem; font-weight: 600; color: #78716c; margin-top: 4p
 <script>
 // ── State ──────────────────────────────────────────
 const STORAGE_KEY = 'money_buddy_kanban';
+const SAVE_STATUS = document.getElementById('saveStatus');
 
 const DEFAULT_CARDS = [
   // NOT STARTED
@@ -301,12 +354,45 @@ const DEFAULT_CARDS = [
 function loadCards() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    const existing = JSON.parse(saved);
+    // Merge: add any new DEFAULT_CARDS ids that don't exist yet (preserves user positions)
+    const existingIds = new Set(existing.map(c => c.id));
+    const newOnes = DEFAULT_CARDS.filter(c => !existingIds.has(c.id));
+    return [...existing, ...newOnes];
   } catch { return null; }
 }
 
 function saveCards(cards) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  if (SAVE_STATUS) {
+    SAVE_STATUS.textContent = '✓ Saved ' + new Date().toLocaleTimeString();
+    SAVE_STATUS.className = 'save-status';
+  }
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(cards, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'money-buddy-tracker-backup.json';
+  a.click();
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error('Invalid');
+      cards = imported;
+      saveCards(cards);
+      render();
+    } catch { alert('Invalid backup file.'); }
+  };
+  reader.readAsText(file);
 }
 
 let cards = loadCards() || DEFAULT_CARDS.map(c => ({ ...c }));

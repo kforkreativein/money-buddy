@@ -23,7 +23,6 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
     e.preventDefault();
     const amt = parseInt(amount, 10);
     if (!amt || amt <= 0) { setError('Please enter a valid amount'); return; }
-    if (!description.trim()) { setError('Please add a note'); return; }
     setError('');
     onSave({
       id: initial?.id ?? crypto.randomUUID(),
@@ -71,9 +70,9 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
       {/* Description */}
       <textarea
         value={description} onChange={e => setDescription(e.target.value)}
-        placeholder="What was this for? 📝"
+        placeholder="What was this for? (optional) 📝"
         rows={2}
-        className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none resize-none placeholder:text-stone-300"
+        className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none resize-none placeholder:text-stone-400"
       />
 
       {/* Payment mode */}
