@@ -8,16 +8,38 @@ function storageKey() {
 }
 
 export const DEFAULT_WALLETS: Wallet[] = [
-  { id: 'gpay_hdfc', name: 'GPay HDFC', emoji: '📱' },
-  { id: 'gpay_yes', name: 'GPay Yes Bank', emoji: '📱' },
+  { id: 'gpay_hdfc', name: 'HDFC Bank', emoji: '📱' },
+  { id: 'gpay_yes', name: 'Yes Bank', emoji: '📱' },
   { id: 'cash', name: 'Cash', emoji: '💵' },
 ];
+
+const DEFAULT_WALLET_RENAMES: Record<string, { oldNames: string[]; newName: string }> = {
+  gpay_hdfc: { oldNames: ['GPay HDFC'], newName: 'HDFC Bank' },
+  gpay_yes: { oldNames: ['GPay Yes Bank'], newName: 'Yes Bank' },
+};
+
+function migrateDefaultWalletNames(wallets: Wallet[]): Wallet[] {
+  let changed = false;
+  const updated = wallets.map(w => {
+    const rule = DEFAULT_WALLET_RENAMES[w.id];
+    if (rule && rule.oldNames.includes(w.name) && w.name !== rule.newName) {
+      changed = true;
+      return { ...w, name: rule.newName };
+    }
+    return w;
+  });
+  if (changed) saveWallets(updated);
+  return updated;
+}
 
 export function getWallets(): Wallet[] {
   if (typeof window === 'undefined') return DEFAULT_WALLETS;
   const raw = localStorage.getItem(storageKey());
   if (!raw) { localStorage.setItem(storageKey(), JSON.stringify(DEFAULT_WALLETS)); return DEFAULT_WALLETS; }
-  try { return JSON.parse(raw); } catch { return DEFAULT_WALLETS; }
+  try {
+    const wallets = JSON.parse(raw) as Wallet[];
+    return migrateDefaultWalletNames(wallets);
+  } catch { return DEFAULT_WALLETS; }
 }
 
 export function saveWallets(wallets: Wallet[]) {

@@ -128,8 +128,8 @@ function initUserData(userId: string) {
   const walletKey = `money_buddy_wallets_${userId}`;
   if (!localStorage.getItem(walletKey)) {
     localStorage.setItem(walletKey, JSON.stringify([
-      { id: 'gpay_hdfc', name: 'GPay HDFC', emoji: '📱' },
-      { id: 'gpay_yes', name: 'GPay Yes Bank', emoji: '📱' },
+      { id: 'gpay_hdfc', name: 'HDFC Bank', emoji: '📱' },
+      { id: 'gpay_yes', name: 'Yes Bank', emoji: '📱' },
       { id: 'cash', name: 'Cash', emoji: '💵' },
     ]));
   }
