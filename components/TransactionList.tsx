@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Transaction, Wallet } from '@/lib/types';
 import { getWallets, legacyWalletId } from '@/lib/wallets';
+import { getCategories, getCategoryById } from '@/lib/categories';
 import TransactionForm from './TransactionForm';
 
 function walletLabel(t: Transaction, wallets: Wallet[]): { emoji: string; name: string } {
@@ -35,11 +36,13 @@ export default function TransactionList({
   onUpdate,
   onDelete,
   walletFilter,
+  categoryFilter,
 }: {
   transactions: Transaction[];
   onUpdate: (txn: Transaction) => void;
   onDelete: (id: string) => void;
   walletFilter?: string | null;
+  categoryFilter?: string | null;
 }) {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
@@ -49,7 +52,7 @@ export default function TransactionList({
   const PAGE = 5;
 
   useEffect(() => { setWallets(getWallets()); }, [transactions]);
-  useEffect(() => { setShowAll(false); }, [walletFilter]);
+  useEffect(() => { setShowAll(false); }, [walletFilter, categoryFilter]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
@@ -72,18 +75,30 @@ export default function TransactionList({
     setPendingDelete(null);
   }
 
+  function matchesCategory(t: Transaction): boolean {
+    if (!categoryFilter) return true;
+    if (t.type !== 'expense') return false;
+    if (categoryFilter === '__none') return !t.categoryId;
+    return t.categoryId === categoryFilter;
+  }
+
   const sorted = [...transactions]
     .filter(t => t.id !== pendingDelete?.txn.id)
     .filter(t => !walletFilter || (t.walletId ?? legacyWalletId(t.paymentMode, t.bank)) === walletFilter)
+    .filter(matchesCategory)
     .sort((a, b) => b.createdAt - a.createdAt);
 
   const q = search.trim().toLowerCase();
   const filtered = q
-    ? sorted.filter(t =>
-        t.description.toLowerCase().includes(q) ||
-        t.date.includes(q) ||
-        String(t.amount).includes(q)
-      )
+    ? sorted.filter(t => {
+        const cat = t.categoryId ? getCategoryById(t.categoryId) : null;
+        return (
+          t.description.toLowerCase().includes(q) ||
+          t.date.includes(q) ||
+          String(t.amount).includes(q) ||
+          (cat?.name.toLowerCase().includes(q) ?? false)
+        );
+      })
     : sorted;
 
   const visible = showAll ? filtered : filtered.slice(0, PAGE);
@@ -134,7 +149,7 @@ export default function TransactionList({
           <span className="text-5xl">{q ? '🔍' : '🪙'}</span>
           <p className="text-lg font-black text-stone-700">{q ? 'No results' : 'No entries yet!'}</p>
           <p className="text-sm font-semibold text-stone-500">
-            {q ? `Nothing matching "${search}"` : 'Add your first entry above ☝️'}
+            {q ? `Nothing matching "${search}"` : categoryFilter ? 'No expenses in this category yet' : 'Add your first entry above ☝️'}
           </p>
         </div>
       ) : (
@@ -187,6 +202,15 @@ export default function TransactionList({
                             {wl.emoji} {wl.name}
                           </span>
                         ); })()}
+                        {txn.categoryId && (() => {
+                          const cat = getCategoryById(txn.categoryId!);
+                          if (!cat) return null;
+                          return (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
+                              {cat.emoji} {cat.name}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
 

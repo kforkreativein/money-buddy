@@ -11,9 +11,10 @@ function getGreeting() {
 
 interface Props {
   onLogout: () => void;
+  onOpenSettings: () => void;
 }
 
-export default function ProfileHeader({ onLogout }: Props) {
+export default function ProfileHeader({ onLogout, onOpenSettings }: Props) {
   const [name, setName] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -111,6 +112,10 @@ export default function ProfileHeader({ onLogout }: Props) {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 top-12 z-50 clay animate-pop-in p-2 min-w-[160px] flex flex-col gap-1">
+                <button onClick={() => { setShowMenu(false); onOpenSettings(); }}
+                  className="clay-btn text-left px-3 py-2.5 text-sm font-bold text-stone-700 rounded-[10px] hover:bg-violet-50">
+                  ⚙️ Settings
+                </button>
                 <button onClick={openEdit}
                   className="clay-btn text-left px-3 py-2.5 text-sm font-bold text-stone-700 rounded-[10px] hover:bg-violet-50">
                   ✏️ Edit name

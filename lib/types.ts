@@ -10,12 +10,20 @@ export interface Wallet {
   openingBalance?: number;
 }
 
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  emoji: string;
+  budget: number;
+}
+
 export interface RecurringRule {
   id: string;
   type: TxType;
   amount: number;
   description: string;
   walletId: string;
+  categoryId?: string;
   frequency: Frequency;
   nextDue: string; // YYYY-MM-DD
 }
@@ -28,6 +36,7 @@ export interface Transaction {
   paymentMode: PaymentMode;
   bank?: Bank;
   walletId?: string;
+  categoryId?: string;
   date: string;       // YYYY-MM-DD
   createdAt: number;  // Date.now()
 }

@@ -6,11 +6,16 @@ import RecurringManager from './RecurringManager';
 
 function fmt(n: number) { return `₹${n.toLocaleString('en-IN')}`; }
 
+import { getCategories, getCategoryById } from '@/lib/categories';
+
 function exportCSV(transactions: Transaction[]) {
-  const headers = ['Date', 'Type', 'Amount', 'Description', 'Wallet'];
+  const headers = ['Date', 'Type', 'Amount', 'Description', 'Wallet', 'Category'];
   const rows = transactions
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map(t => [t.date, t.type, t.amount, `"${(t.description ?? '').replace(/"/g, '""')}"`, t.walletId ?? t.paymentMode]);
+    .map(t => {
+      const cat = t.categoryId ? getCategoryById(t.categoryId)?.name ?? '' : '';
+      return [t.date, t.type, t.amount, `"${(t.description ?? '').replace(/"/g, '""')}"`, t.walletId ?? t.paymentMode, cat];
+    });
   const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);

@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Transaction, TxType, Frequency, Wallet } from '@/lib/types';
+import { Transaction, TxType, Frequency, Wallet, ExpenseCategory } from '@/lib/types';
 import { getWallets, addWallet, legacyWalletId, walletToPaymentMode } from '@/lib/wallets';
+import { getCategories } from '@/lib/categories';
 import { addRule } from '@/lib/recurring';
 
 interface Props {
@@ -33,13 +34,21 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
 
   const [recurring, setRecurring] = useState(false);
   const [frequency, setFrequency] = useState<Frequency>('monthly');
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [categoryId, setCategoryId] = useState<string>('');
 
   useEffect(() => {
     const ws = getWallets();
     setWallets(ws);
+    setCategories(getCategories());
     const defaultId = initial?.walletId ?? legacyWalletId(initial?.paymentMode ?? 'gpay', initial?.bank);
     setWalletId(defaultId);
-  }, [initial?.walletId, initial?.paymentMode, initial?.bank]);
+    setCategoryId(initial?.categoryId ?? '');
+  }, [initial?.walletId, initial?.paymentMode, initial?.bank, initial?.categoryId]);
+
+  useEffect(() => {
+    if (type !== 'expense') setCategoryId('');
+  }, [type]);
 
   function handleAddWallet() {
     const name = newWalletName.trim();
@@ -68,6 +77,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
       walletId,
       paymentMode: pm.paymentMode,
       bank: pm.bank,
+      categoryId: type === 'expense' && categoryId ? categoryId : undefined,
       date,
       createdAt: initial?.createdAt ?? Date.now(),
     };
@@ -82,7 +92,16 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         else d.setMonth(d.getMonth() + 1);
         return d.toISOString().slice(0, 10);
       })();
-      addRule({ id: crypto.randomUUID(), type, amount: amt, description: description.trim(), walletId, frequency, nextDue });
+      addRule({
+        id: crypto.randomUUID(),
+        type,
+        amount: amt,
+        description: description.trim(),
+        walletId,
+        categoryId: type === 'expense' && categoryId ? categoryId : undefined,
+        frequency,
+        nextDue,
+      });
     }
   }
 
@@ -185,6 +204,33 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
           </div>
         )}
       </div>
+
+      {type === 'expense' && categories.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-black text-stone-400 uppercase tracking-wider">Category (optional)</span>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setCategoryId('')}
+              className={`clay-btn px-3 py-2 rounded-[12px] font-bold text-sm transition-all ${
+                !categoryId ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+              }`}>
+              None
+            </button>
+            {categories.map(c => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCategoryId(c.id)}
+                className={`clay-btn px-3 py-2 rounded-[12px] font-bold text-sm transition-all ${
+                  categoryId === c.id ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                }`}>
+                {c.emoji} {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Date */}
       <input type="date" value={date} onChange={e => setDate(e.target.value)}

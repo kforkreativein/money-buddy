@@ -5,10 +5,14 @@ import { getTransactions, addTransaction, updateTransaction, deleteTransaction }
 import { playIncomeSound, playExpenseSound, playInvestmentSound, getSadnessLevel } from '@/lib/audio';
 import { applyDueRecurring } from '@/lib/recurring';
 import { userStorageKey, restoreAuth } from '@/lib/auth';
+import { getCategories } from '@/lib/categories';
+import { ExpenseCategory } from '@/lib/types';
 import Onboarding from '@/components/Onboarding';
 import AuthScreen from '@/components/AuthScreen';
 import ProfileHeader from '@/components/ProfileHeader';
+import SettingsPanel from '@/components/SettingsPanel';
 import StatsBar from '@/components/StatsBar';
+import CategoryFilterBar from '@/components/CategoryFilterBar';
 import TransactionForm from '@/components/TransactionForm';
 import WalletBar from '@/components/WalletBar';
 import TransactionList from '@/components/TransactionList';
@@ -21,17 +25,22 @@ type EffectTrigger = { type: 'income' | 'expense' | 'investment'; amount: number
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [effectTrigger, setEffectTrigger] = useState<EffectTrigger>(null);
   const [budget, setBudget] = useState(0);
   const [walletFilter, setWalletFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const refresh = useCallback(() => setTransactions(getTransactions()), []);
+  const reloadCategories = useCallback(() => setCategories(getCategories()), []);
 
   const loadAppData = useCallback(() => {
     applyDueRecurring();
     refresh();
+    reloadCategories();
     setBudget(Number(localStorage.getItem(userStorageKey('money_buddy_budget')) || 0));
     if (!localStorage.getItem(userStorageKey('onboarding_done'))) {
       setShowOnboarding(true);
@@ -39,7 +48,7 @@ export default function Home() {
       setShowForm(true);
       window.history.replaceState({}, '', '/');
     }
-  }, [refresh]);
+  }, [refresh, reloadCategories]);
 
   useEffect(() => {
     let active = true;
@@ -58,16 +67,20 @@ export default function Home() {
     setShowOnboarding(false);
     setShowForm(false);
     setWalletFilter(null);
+    setCategoryFilter(null);
     loadAppData();
   }, [loadAppData]);
 
   const handleLogout = useCallback(() => {
     setAuthenticated(false);
     setTransactions([]);
+    setCategories([]);
     setBudget(0);
     setShowOnboarding(false);
     setShowForm(false);
+    setShowSettings(false);
     setWalletFilter(null);
+    setCategoryFilter(null);
   }, []);
 
   const handleSave = useCallback((txn: Transaction) => {
@@ -104,9 +117,20 @@ export default function Home() {
         className="max-w-md mx-auto px-4 pt-6 flex flex-col gap-5"
         style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 2rem))' }}
       >
-        <ProfileHeader onLogout={handleLogout} />
+        <ProfileHeader onLogout={handleLogout} onOpenSettings={() => setShowSettings(true)} />
 
-        <StatsBar transactions={transactions} budget={budget} />
+        <StatsBar
+          transactions={transactions}
+          budget={budget}
+          categories={categories}
+          categoryFilter={categoryFilter}
+        />
+
+        <CategoryFilterBar
+          categories={categories}
+          selected={categoryFilter}
+          onSelect={setCategoryFilter}
+        />
 
         {showForm ? (
           <div className="animate-pop-in">
@@ -120,7 +144,13 @@ export default function Home() {
           </button>
         )}
 
-        <TransactionList transactions={transactions} onUpdate={handleUpdate} onDelete={handleDelete} walletFilter={walletFilter} />
+        <TransactionList
+          transactions={transactions}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          walletFilter={walletFilter}
+          categoryFilter={categoryFilter}
+        />
 
         <WalletBar transactions={transactions} selectedWallet={walletFilter} onSelectWallet={id => setWalletFilter(prev => prev === id ? null : id)} />
 
@@ -140,6 +170,12 @@ export default function Home() {
           localStorage.setItem(userStorageKey('onboarding_done'), '1');
           setShowOnboarding(false);
         }} />
+      )}
+      {showSettings && (
+        <SettingsPanel
+          onClose={() => setShowSettings(false)}
+          onChange={() => { reloadCategories(); refresh(); }}
+        />
       )}
     </main>
   );

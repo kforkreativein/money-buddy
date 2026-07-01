@@ -86,5 +86,6 @@
 | 41 | Net balance / savings | ✅ Completed | Income − expense shown below stats cards, hidden by default with eye toggle |
 | 44 | User login (username + password) | ✅ Completed | Sign up / sign in screen, per-user isolated data, session remembered on this device |
 | 45 | Investment tracking | ✅ Completed | Third type alongside income/expense, own stats column, excluded from expense budget & net income |
+| 46 | Custom expense categories | ✅ Completed | Optional categories in Settings, per-category budgets, filter view & tags on expenses |
 | 42 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
 | 43 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |

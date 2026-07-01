@@ -49,6 +49,7 @@ export function applyDueRecurring(): number {
         amount: r.amount,
         description: r.description,
         walletId: r.walletId,
+        categoryId: r.categoryId,
         paymentMode: pm.paymentMode,
         bank: pm.bank,
         date: r.nextDue,

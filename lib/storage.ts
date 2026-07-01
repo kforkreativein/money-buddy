@@ -31,3 +31,9 @@ export function updateTransaction(txn: Transaction) {
 export function deleteTransaction(id: string) {
   save(getTransactions().filter(t => t.id !== id));
 }
+
+export function clearCategoryFromTransactions(categoryId: string) {
+  save(getTransactions().map(t =>
+    t.categoryId === categoryId ? { ...t, categoryId: undefined } : t
+  ));
+}
