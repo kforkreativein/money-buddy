@@ -4,7 +4,7 @@ import { Transaction } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
 import { playIncomeSound, playExpenseSound, getSadnessLevel } from '@/lib/audio';
 import { applyDueRecurring } from '@/lib/recurring';
-import { getSession, userStorageKey } from '@/lib/auth';
+import { userStorageKey, restoreAuth } from '@/lib/auth';
 import Onboarding from '@/components/Onboarding';
 import AuthScreen from '@/components/AuthScreen';
 import ProfileHeader from '@/components/ProfileHeader';
@@ -42,7 +42,11 @@ export default function Home() {
   }, [refresh]);
 
   useEffect(() => {
-    setAuthenticated(!!getSession());
+    let active = true;
+    restoreAuth().then(ok => {
+      if (active) setAuthenticated(ok);
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

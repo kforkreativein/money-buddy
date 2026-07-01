@@ -13,8 +13,14 @@ export interface Session {
   displayName: string;
 }
 
+export interface SavedLogin {
+  username: string;
+  password: string;
+}
+
 const USERS_KEY = 'money_buddy_users';
 const SESSION_KEY = 'money_buddy_session';
+const SAVED_LOGIN_KEY = 'money_buddy_saved_login';
 
 const LEGACY_KEYS = [
   'money_buddy_txns',
@@ -36,6 +42,10 @@ function getUsers(): UserAccount[] {
 
 function saveUsers(users: UserAccount[]) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function findUserById(userId: string): UserAccount | undefined {
+  return getUsers().find(u => u.id === userId);
 }
 
 async function hashPassword(password: string, salt: Uint8Array): Promise<string> {
@@ -65,7 +75,12 @@ export function getSession(): Session | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const session = JSON.parse(raw) as Session;
+    if (!session?.userId || !findUserById(session.userId)) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return session;
   } catch {
     return null;
   }
@@ -90,8 +105,49 @@ function setSession(user: UserAccount) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
+export function saveLoginCredentials(username: string, password: string) {
+  const saved: SavedLogin = { username: username.trim().toLowerCase(), password };
+  localStorage.setItem(SAVED_LOGIN_KEY, JSON.stringify(saved));
+}
+
+export function getSavedLoginCredentials(): SavedLogin | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SAVED_LOGIN_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SavedLogin;
+    if (!saved?.username || !saved?.password) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+/** Set up default wallets for a brand-new user. */
+function initUserData(userId: string) {
+  const walletKey = `money_buddy_wallets_${userId}`;
+  if (!localStorage.getItem(walletKey)) {
+    localStorage.setItem(walletKey, JSON.stringify([
+      { id: 'gpay_hdfc', name: 'GPay HDFC', emoji: '📱' },
+      { id: 'gpay_yes', name: 'GPay Yes Bank', emoji: '📱' },
+      { id: 'cash', name: 'Cash', emoji: '💵' },
+    ]));
+  }
+}
+
 export function logout() {
   localStorage.removeItem(SESSION_KEY);
+}
+
+/** Restore session on app load — uses saved session or saved username/password. */
+export async function restoreAuth(): Promise<boolean> {
+  if (getSession()) return true;
+
+  const saved = getSavedLoginCredentials();
+  if (!saved) return false;
+
+  const result = await login(saved.username, saved.password, { saveCredentials: false });
+  return result.ok;
 }
 
 /** Copy any pre-login local data into the new user's scoped keys (one-time). */
@@ -143,13 +199,16 @@ export async function register(
 
   saveUsers([...users, user]);
   setSession(user);
+  initUserData(user.id);
   migrateLegacyData(user.id);
+  saveLoginCredentials(trimmedUser, password);
   return { ok: true };
 }
 
 export async function login(
   username: string,
   password: string,
+  options: { saveCredentials?: boolean } = {},
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmedUser = username.trim().toLowerCase();
   const user = getUsers().find(u => u.username === trimmedUser);
@@ -159,6 +218,10 @@ export async function login(
   if (hash !== user.passwordHash) return { ok: false, error: 'Wrong username or password' };
 
   setSession(user);
+  initUserData(user.id);
+  if (options.saveCredentials !== false) {
+    saveLoginCredentials(trimmedUser, password);
+  }
   return { ok: true };
 }
 
