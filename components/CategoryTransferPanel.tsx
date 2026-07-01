@@ -65,11 +65,22 @@ export default function CategoryTransferPanel({ categories, onTransfer }: Props)
           </div>
           <div className="flex gap-2">
             <span className="text-stone-500 font-black self-center">₹</span>
-            <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)}
-              placeholder="Amount" className="flex-1 bg-transparent outline-none font-bold text-stone-700 text-sm" />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={e => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="Amount"
+              className="clay flex-1 px-3 py-2.5 bg-transparent outline-none font-bold text-stone-700"
+            />
           </div>
-          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)"
-            className="clay px-3 py-2 text-sm font-semibold text-stone-700 bg-transparent outline-none" />
+          <input
+            type="text"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Note (optional)"
+            className="clay px-3 py-2.5 font-semibold text-stone-700 bg-transparent outline-none w-full"
+          />
           {error && <p className="text-xs font-bold text-rose-500">{error}</p>}
           <button type="submit" className="clay-btn py-2.5 bg-violet-500 text-white font-black text-sm rounded-[12px]">Transfer</button>
         </form>

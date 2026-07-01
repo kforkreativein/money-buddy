@@ -57,17 +57,17 @@ export default function SavingsGoalCard({ transactions, onChange }: {
             value={labelDraft}
             onChange={e => setLabelDraft(e.target.value)}
             placeholder="Goal name"
-            className="clay px-3 py-2 text-sm font-bold text-stone-700 bg-transparent outline-none"
+            className="clay px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none w-full"
           />
           <div className="flex gap-2 items-center">
             <span className="font-black text-stone-500">₹</span>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
               value={targetDraft}
-              onChange={e => setTargetDraft(e.target.value)}
+              onChange={e => setTargetDraft(e.target.value.replace(/[^\d.]/g, ''))}
               placeholder="Target amount"
-              className="flex-1 bg-transparent outline-none font-bold text-stone-700 text-sm"
+              className="clay flex-1 px-3 py-2.5 bg-transparent outline-none font-bold text-stone-700"
             />
             <button type="button" onClick={save} className="clay-btn bg-violet-500 text-white font-black text-xs px-3 py-1.5 rounded-[8px]">Save</button>
           </div>

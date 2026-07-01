@@ -4,6 +4,7 @@ import { Category } from '@/lib/types';
 import { getCategories, addCategory, updateCategory, deleteCategory } from '@/lib/categories';
 import { clearCategoryFromTransactions } from '@/lib/storage';
 import { clearTransfersForCategory } from '@/lib/transfers';
+import EmojiPicker from './EmojiPicker';
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -56,12 +57,17 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)' }}>
-      <div className="clay animate-slide-up w-full max-w-sm max-h-[90dvh] overflow-y-auto flex flex-col gap-4 p-5 rounded-t-[24px] sm:rounded-[24px]">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div
+        className="clay animate-slide-up w-full max-w-sm max-h-[90dvh] overflow-y-auto flex flex-col gap-4 p-5 rounded-t-[24px] sm:rounded-[24px]"
+        onClick={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-black text-stone-800">⚙️ Settings</h2>
-          <button onClick={onClose} className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black">✕</button>
+          <button type="button" onClick={onClose} className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black">✕</button>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -92,20 +98,20 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
                   </div>
                   <div className="flex gap-2 items-center">
                     <span className="text-xs font-bold text-stone-400">Budget</span>
-                    <span className="text-stone-400 font-black text-sm">₹</span>
+                    <span className="text-stone-400 font-black">₹</span>
                     <input
-                      type="number"
+                      type="text"
                       inputMode="numeric"
                       value={budgetDrafts[cat.id] ?? ''}
-                      onChange={e => setBudgetDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
+                      onChange={e => setBudgetDrafts(d => ({ ...d, [cat.id]: e.target.value.replace(/[^\d.]/g, '') }))}
                       onKeyDown={e => e.key === 'Enter' && saveBudget(cat.id)}
                       placeholder="Monthly limit"
-                      className="flex-1 bg-transparent outline-none text-sm font-bold text-stone-700 placeholder:text-stone-400"
+                      className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
                     />
                     <button
                       type="button"
                       onClick={() => saveBudget(cat.id)}
-                      className="clay-btn bg-violet-500 text-white font-black text-xs px-2.5 py-1 rounded-[8px]">
+                      className="clay-btn bg-violet-500 text-white font-black text-xs px-2.5 py-2 rounded-[8px]">
                       Save
                     </button>
                   </div>
@@ -119,27 +125,22 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
 
           <div className="clay p-3 flex flex-col gap-2">
             <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Add category</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <EmojiPicker value={newEmoji} onChange={setNewEmoji} label="Category icon" />
               <input
-                value={newEmoji}
-                onChange={e => setNewEmoji(e.target.value)}
-                className="clay w-12 text-center text-lg bg-transparent outline-none"
-                maxLength={2}
-                aria-label="Category emoji"
-              />
-              <input
+                type="text"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 placeholder="e.g. Personal, Business"
-                className="clay flex-1 px-3 py-2 text-sm font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
+                className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
               />
             </div>
             <button
               type="button"
               onClick={handleAdd}
               disabled={!newName.trim()}
-              className="clay-btn py-2.5 bg-violet-500 text-white font-black text-sm rounded-[12px] disabled:opacity-40">
+              className="clay-btn py-3 bg-violet-500 text-white font-black rounded-[12px] disabled:opacity-40">
               + Add Category
             </button>
           </div>

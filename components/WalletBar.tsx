@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Transaction, Wallet } from '@/lib/types';
 import { getWallets, addWallet, deleteWallet, updateWallet } from '@/lib/wallets';
+import EmojiPicker from './EmojiPicker';
 
 function txWalletId(t: Transaction): string {
   return t.walletId ?? (t.paymentMode === 'gpay' ? (t.bank === 'yes_bank' ? 'gpay_yes' : 'gpay_hdfc') : 'cash');
@@ -27,6 +28,8 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
   const [minBalanceDraft, setMinBalanceDraft] = useState('');
 
   useEffect(() => { setWallets(getWallets()); }, [transactions]);
+
+  const editingWallet = wallets.find(w => w.id === editingId) ?? null;
 
   function handleAdd() {
     const name = newName.trim();
@@ -95,11 +98,11 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
 
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
         {balances.map(w => (
-          <div key={w.id} className="flex flex-col gap-1.5 flex-shrink-0 min-w-[120px]">
+          <div key={w.id} className="flex-shrink-0 min-w-[120px]">
             <div
               className={`clay flex flex-col gap-1 p-3 w-full transition-all ${
                 selectedWallet === w.id ? 'clay-purple ring-2 ring-violet-400' : ''
-              }`}>
+              } ${editingId === w.id ? 'ring-2 ring-violet-300' : ''}`}>
               <div className="flex items-center justify-between">
                 <button
                   type="button"
@@ -140,80 +143,75 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
                 )}
               </button>
             </div>
-
-            {editingId === w.id && (
-              <div className="clay animate-pop-in p-2 flex flex-col gap-2">
-                <div className="flex gap-1.5">
-                  <input
-                    value={emojiDraft}
-                    onChange={e => setEmojiDraft(e.target.value)}
-                    className="clay w-10 text-center text-lg bg-transparent outline-none"
-                    maxLength={2}
-                    aria-label="Wallet emoji"
-                  />
-                  <input
-                    autoFocus
-                    type="text"
-                    value={nameDraft}
-                    onChange={e => setNameDraft(e.target.value)}
-                    placeholder="Wallet name"
-                    className="clay flex-1 px-2 py-1 text-xs font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 min-w-0"
-                  />
-                </div>
-                <div className="flex gap-1.5">
-                  <span className="text-[10px] text-stone-400 font-bold self-center whitespace-nowrap">Alert&lt;</span>
-                  <span className="text-xs text-stone-400 font-bold self-center">₹</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={minBalanceDraft}
-                    onChange={e => setMinBalanceDraft(e.target.value)}
-                    placeholder="Low balance alert"
-                    className="flex-1 bg-transparent outline-none text-xs font-bold text-stone-700 placeholder:text-stone-400 min-w-0"
-                  />
-                </div>
-                <div className="flex gap-1.5">
-                  <span className="text-xs text-stone-400 font-bold self-center">₹</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={balanceDraft}
-                    onChange={e => setBalanceDraft(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && saveEdit(w.id)}
-                    placeholder="Opening balance"
-                    className="flex-1 bg-transparent outline-none text-xs font-bold text-stone-700 placeholder:text-stone-400 min-w-0"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => saveEdit(w.id)}
-                    disabled={!nameDraft.trim()}
-                    className="clay-btn bg-violet-500 text-white font-black text-xs px-2 py-1 rounded-[8px] disabled:opacity-40">
-                    ✓
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>
 
+      {editingWallet && (
+        <div className="clay animate-pop-in p-3 flex flex-col gap-2">
+          <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Edit {editingWallet.name}</p>
+          <div className="flex gap-2 items-center">
+            <EmojiPicker value={emojiDraft} onChange={setEmojiDraft} label="Wallet icon" />
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={e => setNameDraft(e.target.value)}
+              placeholder="Wallet name"
+              className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 min-w-0"
+            />
+          </div>
+          <div className="flex gap-2 items-center">
+            <span className="text-xs text-stone-400 font-bold whitespace-nowrap">Alert below ₹</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={minBalanceDraft}
+              onChange={e => setMinBalanceDraft(e.target.value.replace(/[^\d.]/g, ''))}
+              placeholder="Low balance alert"
+              className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 min-w-0"
+            />
+          </div>
+          <div className="flex gap-2 items-center">
+            <span className="text-xs text-stone-400 font-bold">₹</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={balanceDraft}
+              onChange={e => setBalanceDraft(e.target.value.replace(/[^\d.]/g, ''))}
+              onKeyDown={e => e.key === 'Enter' && saveEdit(editingWallet.id)}
+              placeholder="Opening balance"
+              className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 min-w-0"
+            />
+            <button
+              type="button"
+              onClick={() => saveEdit(editingWallet.id)}
+              disabled={!nameDraft.trim()}
+              className="clay-btn bg-violet-500 text-white font-black text-sm px-4 py-2.5 rounded-[10px] disabled:opacity-40">
+              Save ✓
+            </button>
+          </div>
+        </div>
+      )}
+
       {showAdd && (
         <div className="clay animate-pop-in p-3 flex flex-col gap-2">
           <p className="text-xs font-black text-stone-500 uppercase tracking-wide">New Wallet</p>
-          <div className="flex gap-2">
-            <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)}
-              className="clay w-12 text-center text-xl bg-transparent outline-none" maxLength={2} />
-            <input value={newName} onChange={e => setNewName(e.target.value)}
+          <div className="flex gap-2 items-center">
+            <EmojiPicker value={newEmoji} onChange={setNewEmoji} label="Wallet icon" />
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               placeholder="e.g. Credit Card"
-              autoFocus
-              className="clay flex-1 px-3 py-2 text-sm font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400" />
+              className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
+            />
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowAdd(false)}
-              className="clay-btn flex-1 py-2 font-bold text-stone-500 text-sm rounded-[10px] bg-stone-100">Cancel</button>
+              className="clay-btn flex-1 py-2.5 font-bold text-stone-500 rounded-[10px] bg-stone-100">Cancel</button>
             <button onClick={handleAdd} disabled={!newName.trim()}
-              className="clay-btn flex-1 py-2 bg-violet-500 text-white font-black text-sm rounded-[10px] disabled:opacity-40">Add</button>
+              className="clay-btn flex-1 py-2.5 bg-violet-500 text-white font-black rounded-[10px] disabled:opacity-40">Add</button>
           </div>
         </div>
       )}

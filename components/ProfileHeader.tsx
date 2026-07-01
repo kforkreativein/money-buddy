@@ -53,8 +53,12 @@ export default function ProfileHeader({ onLogout, onOpenSettings }: Props) {
     <>
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)' }}>
-          <div className="clay animate-bounce-in w-full max-w-sm p-7 flex flex-col items-center gap-5 text-center">
+          style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowModal(false)}>
+          <div
+            className="clay animate-bounce-in w-full max-w-sm p-7 flex flex-col items-center gap-5 text-center"
+            onClick={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}>
             <span className="text-5xl">✏️</span>
             <h2 className="text-2xl font-black text-stone-800">Edit your name</h2>
             <p className="text-sm font-semibold text-stone-500">So I can greet you properly!</p>

@@ -4,6 +4,7 @@ import { Transaction, TxType, Frequency, Wallet, Category } from '@/lib/types';
 import { getWallets, addWallet, legacyWalletId, walletToPaymentMode } from '@/lib/wallets';
 import { getCategories } from '@/lib/categories';
 import { addRule } from '@/lib/recurring';
+import EmojiPicker from './EmojiPicker';
 
 interface Props {
   initial?: Transaction;
@@ -141,8 +142,10 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
       <div className="relative">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-stone-400">₹</span>
         <input
-          type="number" inputMode="numeric" min="1" value={amount}
-          onChange={e => setAmount(e.target.value)}
+          type="text"
+          inputMode="numeric"
+          value={amount}
+          onChange={e => setAmount(e.target.value.replace(/[^\d]/g, ''))}
           placeholder="0"
           className="clay w-full pl-10 pr-4 py-4 text-2xl font-black text-stone-800 bg-transparent outline-none placeholder:text-stone-300"
         />
@@ -190,15 +193,18 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
           </button>
         </div>
         {showAddWallet && (
-          <div className="clay animate-pop-in p-3 flex gap-2">
-            <input value={newWalletEmoji} onChange={e => setNewWalletEmoji(e.target.value)}
-              className="clay w-12 text-center text-lg bg-transparent outline-none" maxLength={2} />
-            <input value={newWalletName} onChange={e => setNewWalletName(e.target.value)}
+          <div className="clay animate-pop-in p-3 flex gap-2 items-center">
+            <EmojiPicker value={newWalletEmoji} onChange={setNewWalletEmoji} label="Wallet icon" />
+            <input
+              type="text"
+              value={newWalletName}
+              onChange={e => setNewWalletName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddWallet()}
               placeholder="Wallet name"
-              className="clay flex-1 px-3 py-1.5 text-sm font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400" />
+              className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
+            />
             <button type="button" onClick={handleAddWallet} disabled={!newWalletName.trim()}
-              className="clay-btn bg-violet-500 text-white font-black text-xs px-3 rounded-[10px] disabled:opacity-40">
+              className="clay-btn bg-violet-500 text-white font-black text-sm px-3 py-2 rounded-[10px] disabled:opacity-40">
               Add
             </button>
           </div>

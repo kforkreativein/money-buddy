@@ -113,6 +113,16 @@ body {
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
+/* ── Mobile input fix (iOS PWA needs 16px+ or keyboard breaks) ── */
+input,
+textarea,
+select {
+  font-size: 16px;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
 /* ── Input base (no browser chrome) ── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
