@@ -1,5 +1,6 @@
 import { Wallet } from './types';
 import { userStorageKey } from './auth';
+import { scheduleCloudSync } from './supabase/sync';
 
 const KEY = 'money_buddy_wallets';
 
@@ -44,6 +45,7 @@ export function getWallets(): Wallet[] {
 
 export function saveWallets(wallets: Wallet[]) {
   localStorage.setItem(storageKey(), JSON.stringify(wallets));
+  scheduleCloudSync();
 }
 
 export function updateWallet(id: string, patch: Partial<Pick<Wallet, 'name' | 'emoji' | 'openingBalance' | 'minBalance'>>) {

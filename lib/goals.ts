@@ -1,5 +1,6 @@
 import { SavingsGoal } from './types';
 import { userStorageKey } from './auth';
+import { scheduleCloudSync } from './supabase/sync';
 
 const KEY = 'money_buddy_savings_goal';
 
@@ -22,7 +23,8 @@ export function getSavingsGoal(): SavingsGoal | null {
 export function setSavingsGoal(goal: SavingsGoal | null) {
   if (!goal || goal.target <= 0) {
     localStorage.removeItem(storageKey());
-    return;
+  } else {
+    localStorage.setItem(storageKey(), JSON.stringify(goal));
   }
-  localStorage.setItem(storageKey(), JSON.stringify(goal));
+  scheduleCloudSync();
 }

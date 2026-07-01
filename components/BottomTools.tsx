@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Transaction } from '@/lib/types';
 import { userStorageKey } from '@/lib/auth';
+import { scheduleCloudSync } from '@/lib/supabase/sync';
 import RecurringManager from './RecurringManager';
 
 function fmt(n: number) { return `₹${n.toLocaleString('en-IN')}`; }
@@ -39,6 +40,7 @@ export default function BottomTools({ transactions, budget, onSetBudget, onRefre
     onSetBudget(val > 0 ? val : 0);
     if (val > 0) localStorage.setItem(userStorageKey('money_buddy_budget'), String(val));
     else localStorage.removeItem(userStorageKey('money_buddy_budget'));
+    scheduleCloudSync();
     setShowBudget(false);
     setBudgetDraft('');
   }

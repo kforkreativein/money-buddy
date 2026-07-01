@@ -5,6 +5,7 @@ import { getTransactions, addTransaction, updateTransaction, deleteTransaction }
 import { playIncomeSound, playExpenseSound, playInvestmentSound, getSadnessLevel } from '@/lib/audio';
 import { applyDueRecurring } from '@/lib/recurring';
 import { userStorageKey, restoreAuth } from '@/lib/auth';
+import { scheduleCloudSync } from '@/lib/supabase/sync';
 import { getCategories } from '@/lib/categories';
 import { getTransfers } from '@/lib/transfers';
 import Onboarding from '@/components/Onboarding';
@@ -190,6 +191,7 @@ export default function Home() {
       {showOnboarding && (
         <Onboarding onDone={() => {
           localStorage.setItem(userStorageKey('onboarding_done'), '1');
+          scheduleCloudSync();
           setShowOnboarding(false);
         }} />
       )}

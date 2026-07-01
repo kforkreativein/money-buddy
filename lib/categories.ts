@@ -1,5 +1,6 @@
 import { Category } from './types';
 import { userStorageKey } from './auth';
+import { scheduleCloudSync } from './supabase/sync';
 
 const KEY = 'money_buddy_categories';
 
@@ -18,6 +19,7 @@ export function getCategories(): Category[] {
 
 function save(categories: Category[]) {
   localStorage.setItem(storageKey(), JSON.stringify(categories));
+  scheduleCloudSync();
 }
 
 export function addCategory(name: string, emoji: string): Category {

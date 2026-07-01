@@ -1,5 +1,6 @@
 import { Transaction } from './types';
 import { userStorageKey } from './auth';
+import { scheduleCloudSync } from './supabase/sync';
 
 const KEY = 'money_buddy_txns';
 
@@ -18,6 +19,7 @@ export function getTransactions(): Transaction[] {
 
 function save(txns: Transaction[]) {
   localStorage.setItem(storageKey(), JSON.stringify(txns));
+  scheduleCloudSync();
 }
 
 export function addTransaction(txn: Transaction) {

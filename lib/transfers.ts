@@ -1,5 +1,6 @@
 import { CategoryTransfer } from './types';
 import { userStorageKey } from './auth';
+import { scheduleCloudSync } from './supabase/sync';
 
 const KEY = 'money_buddy_transfers';
 
@@ -18,6 +19,7 @@ export function getTransfers(): CategoryTransfer[] {
 
 function save(transfers: CategoryTransfer[]) {
   localStorage.setItem(storageKey(), JSON.stringify(transfers));
+  scheduleCloudSync();
 }
 
 export function addTransfer(t: Omit<CategoryTransfer, 'id' | 'createdAt'>): CategoryTransfer {

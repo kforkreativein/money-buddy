@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { login, register, getSavedLoginCredentials, isStandalonePwa } from '@/lib/auth';
+import { isSupabaseEnabled } from '@/lib/supabase/client';
 
 interface Props {
   onAuth: () => void;
@@ -133,6 +134,11 @@ export default function AuthScreen({ onAuth }: Props) {
         <p className="text-[11px] text-stone-400 text-center leading-relaxed">
           We remember your login in this app — open it again and you stay signed in.
         </p>
+        {isSupabaseEnabled() && (
+          <p className="text-[11px] font-semibold text-blue-600 text-center leading-relaxed">
+            ☁️ Cloud sync on — same login works on phone &amp; browser
+          </p>
+        )}
       </div>
     </div>
   );

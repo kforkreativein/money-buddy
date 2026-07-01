@@ -1,0 +1,138 @@
+-- Money Buddy — run this in Supabase Dashboard → SQL Editor → New query → Run
+
+-- Profiles (linked to Supabase Auth)
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  username text unique not null,
+  display_name text not null default '',
+  created_at timestamptz default now()
+);
+
+alter table public.profiles enable row level security;
+
+create policy "profiles_select_own" on public.profiles for select using (auth.uid() = id);
+create policy "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);
+create policy "profiles_update_own" on public.profiles for update using (auth.uid() = id);
+
+-- Transactions
+create table if not exists public.transactions (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null check (type in ('income', 'expense', 'investment')),
+  amount integer not null,
+  description text default '',
+  payment_mode text,
+  bank text,
+  wallet_id text,
+  category_id text,
+  date date not null,
+  created_at bigint not null,
+  primary key (user_id, id)
+);
+
+alter table public.transactions enable row level security;
+create policy "transactions_all_own" on public.transactions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Wallets
+create table if not exists public.wallets (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  emoji text not null default '💳',
+  opening_balance numeric,
+  min_balance numeric,
+  primary key (user_id, id)
+);
+
+alter table public.wallets enable row level security;
+create policy "wallets_all_own" on public.wallets for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Categories
+create table if not exists public.categories (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  emoji text not null default '🏷️',
+  budget integer not null default 0,
+  primary key (user_id, id)
+);
+
+alter table public.categories enable row level security;
+create policy "categories_all_own" on public.categories for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Category transfers
+create table if not exists public.category_transfers (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount integer not null,
+  from_category_id text not null,
+  to_category_id text not null,
+  note text,
+  date date not null,
+  created_at bigint not null,
+  primary key (user_id, id)
+);
+
+alter table public.category_transfers enable row level security;
+create policy "transfers_all_own" on public.category_transfers for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Recurring rules
+create table if not exists public.recurring_rules (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null,
+  amount integer not null,
+  description text default '',
+  wallet_id text not null,
+  category_id text,
+  frequency text not null,
+  next_due date not null,
+  primary key (user_id, id)
+);
+
+alter table public.recurring_rules enable row level security;
+create policy "recurring_all_own" on public.recurring_rules for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Savings goal (one row per user)
+create table if not exists public.savings_goals (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  target integer not null,
+  label text not null default 'My Savings Goal'
+);
+
+alter table public.savings_goals enable row level security;
+create policy "goals_all_own" on public.savings_goals for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- User settings
+create table if not exists public.user_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  monthly_budget integer not null default 0,
+  onboarding_done boolean not null default false
+);
+
+alter table public.user_settings enable row level security;
+create policy "settings_all_own" on public.user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Auto-create profile on sign-up
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data->>'display_name', '')
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();

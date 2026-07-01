@@ -1,3 +1,13 @@
+import {
+  isSupabaseEnabled,
+  supabaseRegister,
+  supabaseLogin,
+  supabaseLogout,
+  supabaseRestoreAuth,
+  supabaseUpdateDisplayName,
+} from './supabase/auth';
+import { pullFromCloud, pushToCloud, syncWithCloud } from './supabase/sync';
+
 export interface UserAccount {
   id: string;
   username: string;
@@ -124,7 +134,11 @@ export function getSession(): Session | null {
     const raw = safeGetItem(SESSION_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw) as Session;
-    if (!session?.userId || !findUserById(session.userId)) {
+    if (!session?.userId) {
+      safeRemoveItem(SESSION_KEY);
+      return null;
+    }
+    if (!isSupabaseEnabled() && !findUserById(session.userId)) {
       safeRemoveItem(SESSION_KEY);
       return null;
     }
@@ -184,11 +198,37 @@ function initUserData(userId: string) {
 }
 
 export function logout() {
+  if (isSupabaseEnabled()) {
+    void supabaseLogout();
+  }
   safeRemoveItem(SESSION_KEY);
 }
 
-/** Restore saved session only — no password hashing on startup (fixes iOS home-screen app). */
 export async function restoreAuth(): Promise<boolean> {
+  if (isSupabaseEnabled()) {
+    const ok = await supabaseRestoreAuth();
+    if (ok) {
+      try {
+        await pullFromCloud();
+      } catch {
+        await syncWithCloud();
+      }
+      return true;
+    }
+    const saved = getSavedLoginCredentials();
+    if (saved) {
+      const result = await login(saved.username, saved.password, { saveCredentials: false });
+      if (result.ok) {
+        try {
+          await pullFromCloud();
+        } catch {
+          await syncWithCloud();
+        }
+        return true;
+      }
+    }
+    return false;
+  }
   return !!getSession();
 }
 
@@ -255,6 +295,20 @@ export async function register(
       return { ok: false, error: 'Please enter your name' };
     }
 
+    if (isSupabaseEnabled()) {
+      const result = await supabaseRegister(trimmedUser, password, trimmedName);
+      if (!result.ok) return result;
+      initUserData(getCurrentUserId()!);
+      migrateLegacyData(getCurrentUserId()!);
+      saveLoginCredentials(trimmedUser, password);
+      try {
+        await pushToCloud();
+      } catch (err) {
+        console.error('initial cloud push failed', err);
+      }
+      return { ok: true };
+    }
+
     const users = getUsers();
     if (users.some(u => u.username === trimmedUser)) {
       return { ok: false, error: 'That username is already taken' };
@@ -302,6 +356,22 @@ export async function login(
     }
 
     const trimmedUser = username.trim().toLowerCase();
+
+    if (isSupabaseEnabled()) {
+      const result = await supabaseLogin(trimmedUser, password);
+      if (!result.ok) return { ok: false, error: loginErrorMessage(false) };
+      initUserData(getCurrentUserId()!);
+      if (options.saveCredentials !== false) {
+        saveLoginCredentials(trimmedUser, password);
+      }
+      try {
+        await pullFromCloud();
+      } catch {
+        await syncWithCloud();
+      }
+      return { ok: true };
+    }
+
     const user = getUsers().find(u => u.username === trimmedUser);
     if (!user) return { ok: false, error: loginErrorMessage(false) };
 
@@ -330,6 +400,11 @@ export function updateDisplayName(name: string) {
   if (!session) return;
   const trimmed = name.trim();
   if (!trimmed) return;
+
+  if (isSupabaseEnabled()) {
+    void supabaseUpdateDisplayName(trimmed);
+    return;
+  }
 
   const users = getUsers().map(u =>
     u.id === session.userId ? { ...u, displayName: trimmed } : u,

@@ -2,6 +2,7 @@ import { RecurringRule, Transaction } from './types';
 import { addTransaction } from './storage';
 import { walletToPaymentMode } from './wallets';
 import { userStorageKey } from './auth';
+import { scheduleCloudSync } from './supabase/sync';
 
 const KEY = 'money_buddy_recurring';
 
@@ -16,6 +17,7 @@ export function getRules(): RecurringRule[] {
 
 function save(rules: RecurringRule[]) {
   localStorage.setItem(storageKey(), JSON.stringify(rules));
+  scheduleCloudSync();
 }
 
 export function addRule(rule: RecurringRule) {
