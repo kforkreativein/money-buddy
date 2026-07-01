@@ -4,7 +4,9 @@ import { Transaction } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
 import { playIncomeSound, playExpenseSound, getSadnessLevel } from '@/lib/audio';
 import { applyDueRecurring } from '@/lib/recurring';
+import { getSession, userStorageKey } from '@/lib/auth';
 import Onboarding from '@/components/Onboarding';
+import AuthScreen from '@/components/AuthScreen';
 import ProfileHeader from '@/components/ProfileHeader';
 import StatsBar from '@/components/StatsBar';
 import TransactionForm from '@/components/TransactionForm';
@@ -17,6 +19,7 @@ import EffectsLayer from '@/components/EffectsLayer';
 type EffectTrigger = { type: 'income' | 'expense'; amount: number; key: number } | null;
 
 export default function Home() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -26,17 +29,42 @@ export default function Home() {
 
   const refresh = useCallback(() => setTransactions(getTransactions()), []);
 
-  useEffect(() => {
+  const loadAppData = useCallback(() => {
     applyDueRecurring();
     refresh();
-    setBudget(Number(localStorage.getItem('money_buddy_budget') || 0));
-    if (!localStorage.getItem('onboarding_done')) {
+    setBudget(Number(localStorage.getItem(userStorageKey('money_buddy_budget')) || 0));
+    if (!localStorage.getItem(userStorageKey('onboarding_done'))) {
       setShowOnboarding(true);
     } else if (new URLSearchParams(window.location.search).get('action') === 'add') {
       setShowForm(true);
       window.history.replaceState({}, '', '/');
     }
   }, [refresh]);
+
+  useEffect(() => {
+    setAuthenticated(!!getSession());
+  }, []);
+
+  useEffect(() => {
+    if (authenticated) loadAppData();
+  }, [authenticated, loadAppData]);
+
+  const handleAuth = useCallback(() => {
+    setAuthenticated(true);
+    setShowOnboarding(false);
+    setShowForm(false);
+    setWalletFilter(null);
+    loadAppData();
+  }, [loadAppData]);
+
+  const handleLogout = useCallback(() => {
+    setAuthenticated(false);
+    setTransactions([]);
+    setBudget(0);
+    setShowOnboarding(false);
+    setShowForm(false);
+    setWalletFilter(null);
+  }, []);
 
   const handleSave = useCallback((txn: Transaction) => {
     addTransaction(txn);
@@ -57,19 +85,24 @@ export default function Home() {
     refresh();
   }, [refresh]);
 
+  if (authenticated === null) {
+    return <main className="min-h-dvh" style={{ background: '#FFF7ED' }} />;
+  }
+
+  if (!authenticated) {
+    return <AuthScreen onAuth={handleAuth} />;
+  }
+
   return (
     <main className="min-h-dvh" style={{ background: '#FFF7ED' }}>
       <div
         className="max-w-md mx-auto px-4 pt-6 flex flex-col gap-5"
         style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 2rem))' }}
       >
-        {/* 1. Greeting */}
-        <ProfileHeader />
+        <ProfileHeader onLogout={handleLogout} />
 
-        {/* 2. Income / Expense totals */}
         <StatsBar transactions={transactions} budget={budget} />
 
-        {/* 3. Add button / form */}
         {showForm ? (
           <div className="animate-pop-in">
             <TransactionForm onSave={handleSave} onCancel={() => setShowForm(false)} />
@@ -82,13 +115,10 @@ export default function Home() {
           </button>
         )}
 
-        {/* 4 + 5. Search + Transactions by month */}
         <TransactionList transactions={transactions} onUpdate={handleUpdate} onDelete={handleDelete} walletFilter={walletFilter} />
 
-        {/* 6. Wallets */}
         <WalletBar transactions={transactions} selectedWallet={walletFilter} onSelectWallet={id => setWalletFilter(prev => prev === id ? null : id)} />
 
-        {/* 7. Recurring rules / Export CSV / Set Budget */}
         <BottomTools
           transactions={transactions}
           budget={budget}
@@ -96,12 +126,16 @@ export default function Home() {
           onRefresh={refresh}
         />
 
-        {/* 8. Monthly overview chart */}
         <InsightsChart transactions={transactions} />
       </div>
 
       <EffectsLayer trigger={effectTrigger} />
-      {showOnboarding && <Onboarding onDone={() => { localStorage.setItem('onboarding_done', '1'); setShowOnboarding(false); }} />}
+      {showOnboarding && (
+        <Onboarding onDone={() => {
+          localStorage.setItem(userStorageKey('onboarding_done'), '1');
+          setShowOnboarding(false);
+        }} />
+      )}
     </main>
   );
 }

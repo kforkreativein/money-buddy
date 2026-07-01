@@ -1,16 +1,21 @@
 import { RecurringRule, Transaction } from './types';
 import { addTransaction } from './storage';
 import { walletToPaymentMode } from './wallets';
+import { userStorageKey } from './auth';
 
 const KEY = 'money_buddy_recurring';
 
+function storageKey() {
+  return userStorageKey(KEY);
+}
+
 export function getRules(): RecurringRule[] {
   if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(KEY) ?? '[]'); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(storageKey()) ?? '[]'); } catch { return []; }
 }
 
 function save(rules: RecurringRule[]) {
-  localStorage.setItem(KEY, JSON.stringify(rules));
+  localStorage.setItem(storageKey(), JSON.stringify(rules));
 }
 
 export function addRule(rule: RecurringRule) {
