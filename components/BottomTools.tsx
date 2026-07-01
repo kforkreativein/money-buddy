@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Transaction } from '@/lib/types';
+import { userStorageKey } from '@/lib/auth';
 import RecurringManager from './RecurringManager';
 
 function fmt(n: number) { return `₹${n.toLocaleString('en-IN')}`; }
@@ -31,8 +32,8 @@ export default function BottomTools({ transactions, budget, onSetBudget, onRefre
   function saveBudget() {
     const val = Number(budgetDraft);
     onSetBudget(val > 0 ? val : 0);
-    if (val > 0) localStorage.setItem('money_buddy_budget', String(val));
-    else localStorage.removeItem('money_buddy_budget');
+    if (val > 0) localStorage.setItem(userStorageKey('money_buddy_budget'), String(val));
+    else localStorage.removeItem(userStorageKey('money_buddy_budget'));
     setShowBudget(false);
     setBudgetDraft('');
   }

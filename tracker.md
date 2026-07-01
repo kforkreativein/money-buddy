@@ -81,8 +81,9 @@
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 38 | Recurring transactions | ✅ Completed | Toggle in form, frequency picker, auto-adds on load, manage via RecurringManager |
-| 39 | Multiple wallets / accounts | ✅ Completed | Wallet picker in form, WalletBar with net balances + opening balance, add/delete custom wallets |
+| 39 | Multiple wallets / accounts | ✅ Completed | Wallet picker in form, WalletBar with net balances + opening balance, edit name/emoji/balance, add/delete custom wallets |
 | 40 | Filter by wallet | ✅ Completed | Tap wallet card to filter transactions list, ✕ Clear filter button |
 | 41 | Net balance / savings | ✅ Completed | Income − expense shown below stats cards, hidden by default with eye toggle |
+| 44 | User login (username + password) | ✅ Completed | Sign up / sign in screen, per-user isolated data, session remembered on this device |
 | 42 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
 | 43 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |

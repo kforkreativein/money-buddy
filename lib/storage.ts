@@ -1,18 +1,23 @@
 import { Transaction } from './types';
+import { userStorageKey } from './auth';
 
 const KEY = 'money_buddy_txns';
+
+function storageKey() {
+  return userStorageKey(KEY);
+}
 
 export function getTransactions(): Transaction[] {
   if (typeof window === 'undefined') return [];
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]');
+    return JSON.parse(localStorage.getItem(storageKey()) ?? '[]');
   } catch {
     return [];
   }
 }
 
 function save(txns: Transaction[]) {
-  localStorage.setItem(KEY, JSON.stringify(txns));
+  localStorage.setItem(storageKey(), JSON.stringify(txns));
 }
 
 export function addTransaction(txn: Transaction) {

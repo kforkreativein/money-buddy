@@ -1,6 +1,11 @@
 import { Wallet } from './types';
+import { userStorageKey } from './auth';
 
 const KEY = 'money_buddy_wallets';
+
+function storageKey() {
+  return userStorageKey(KEY);
+}
 
 export const DEFAULT_WALLETS: Wallet[] = [
   { id: 'gpay_hdfc', name: 'GPay HDFC', emoji: '📱' },
@@ -10,13 +15,19 @@ export const DEFAULT_WALLETS: Wallet[] = [
 
 export function getWallets(): Wallet[] {
   if (typeof window === 'undefined') return DEFAULT_WALLETS;
-  const raw = localStorage.getItem(KEY);
-  if (!raw) { localStorage.setItem(KEY, JSON.stringify(DEFAULT_WALLETS)); return DEFAULT_WALLETS; }
+  const raw = localStorage.getItem(storageKey());
+  if (!raw) { localStorage.setItem(storageKey(), JSON.stringify(DEFAULT_WALLETS)); return DEFAULT_WALLETS; }
   try { return JSON.parse(raw); } catch { return DEFAULT_WALLETS; }
 }
 
 export function saveWallets(wallets: Wallet[]) {
-  localStorage.setItem(KEY, JSON.stringify(wallets));
+  localStorage.setItem(storageKey(), JSON.stringify(wallets));
+}
+
+export function updateWallet(id: string, patch: Partial<Pick<Wallet, 'name' | 'emoji' | 'openingBalance'>>) {
+  const updated = getWallets().map(w => w.id === id ? { ...w, ...patch } : w);
+  saveWallets(updated);
+  return updated;
 }
 
 export function addWallet(w: Omit<Wallet, 'id'>): Wallet {
