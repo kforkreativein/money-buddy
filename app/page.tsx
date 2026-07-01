@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Transaction } from '@/lib/types';
+import { Transaction, Category, CategoryTransfer } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
 import { playIncomeSound, playExpenseSound, playInvestmentSound, getSadnessLevel } from '@/lib/audio';
 import { applyDueRecurring } from '@/lib/recurring';
 import { userStorageKey, restoreAuth } from '@/lib/auth';
 import { getCategories } from '@/lib/categories';
-import { ExpenseCategory } from '@/lib/types';
+import { getTransfers } from '@/lib/transfers';
 import Onboarding from '@/components/Onboarding';
 import AuthScreen from '@/components/AuthScreen';
 import ProfileHeader from '@/components/ProfileHeader';
@@ -19,13 +19,21 @@ import TransactionList from '@/components/TransactionList';
 import BottomTools from '@/components/BottomTools';
 import InsightsChart from '@/components/InsightsChart';
 import EffectsLayer from '@/components/EffectsLayer';
+import SavingsGoalCard from '@/components/SavingsGoalCard';
+import DueReminders from '@/components/DueReminders';
+import WeeklySummary from '@/components/WeeklySummary';
+import CategoryBreakdown from '@/components/CategoryBreakdown';
+import CategoryTransferPanel from '@/components/CategoryTransferPanel';
+import YearEndReport from '@/components/YearEndReport';
+import LowBalanceAlert from '@/components/LowBalanceAlert';
 
 type EffectTrigger = { type: 'income' | 'expense' | 'investment'; amount: number; key: number } | null;
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [transfers, setTransfers] = useState<CategoryTransfer[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -36,11 +44,13 @@ export default function Home() {
 
   const refresh = useCallback(() => setTransactions(getTransactions()), []);
   const reloadCategories = useCallback(() => setCategories(getCategories()), []);
+  const reloadTransfers = useCallback(() => setTransfers(getTransfers()), []);
 
   const loadAppData = useCallback(() => {
     applyDueRecurring();
     refresh();
     reloadCategories();
+    reloadTransfers();
     setBudget(Number(localStorage.getItem(userStorageKey('money_buddy_budget')) || 0));
     if (!localStorage.getItem(userStorageKey('onboarding_done'))) {
       setShowOnboarding(true);
@@ -48,7 +58,7 @@ export default function Home() {
       setShowForm(true);
       window.history.replaceState({}, '', '/');
     }
-  }, [refresh, reloadCategories]);
+  }, [refresh, reloadCategories, reloadTransfers]);
 
   useEffect(() => {
     let active = true;
@@ -74,6 +84,7 @@ export default function Home() {
   const handleLogout = useCallback(() => {
     setAuthenticated(false);
     setTransactions([]);
+    setTransfers([]);
     setCategories([]);
     setBudget(0);
     setShowOnboarding(false);
@@ -119,11 +130,14 @@ export default function Home() {
       >
         <ProfileHeader onLogout={handleLogout} onOpenSettings={() => setShowSettings(true)} />
 
+        <LowBalanceAlert transactions={transactions} />
+
         <StatsBar
           transactions={transactions}
           budget={budget}
           categories={categories}
           categoryFilter={categoryFilter}
+          transfers={transfers}
         />
 
         <CategoryFilterBar
@@ -162,6 +176,14 @@ export default function Home() {
         />
 
         <InsightsChart transactions={transactions} />
+
+        <SavingsGoalCard transactions={transactions} />
+
+        <DueReminders />
+        <WeeklySummary transactions={transactions} />
+        <CategoryBreakdown transactions={transactions} transfers={transfers} categories={categories} />
+        <CategoryTransferPanel categories={categories} onTransfer={() => { reloadTransfers(); reloadCategories(); }} />
+        <YearEndReport transactions={transactions} transfers={transfers} categories={categories} />
       </div>
 
       <EffectsLayer trigger={effectTrigger} />
@@ -174,7 +196,7 @@ export default function Home() {
       {showSettings && (
         <SettingsPanel
           onClose={() => setShowSettings(false)}
-          onChange={() => { reloadCategories(); refresh(); }}
+          onChange={() => { reloadCategories(); reloadTransfers(); refresh(); }}
         />
       )}
     </main>

@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ExpenseCategory } from '@/lib/types';
+import { Category } from '@/lib/types';
 import { getCategories, addCategory, updateCategory, deleteCategory } from '@/lib/categories';
 import { clearCategoryFromTransactions } from '@/lib/storage';
+import { clearTransfersForCategory } from '@/lib/transfers';
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -14,7 +15,7 @@ interface Props {
 }
 
 export default function SettingsPanel({ onClose, onChange }: Props) {
-  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🏷️');
   const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
@@ -42,6 +43,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   function handleDelete(id: string) {
     deleteCategory(id);
     clearCategoryFromTransactions(id);
+    clearTransfersForCategory(id);
     reload();
     onChange();
   }
@@ -64,9 +66,9 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
 
         <div className="flex flex-col gap-3">
           <div>
-            <p className="text-xs font-black text-stone-400 uppercase tracking-wider mb-1">Expense categories</p>
+            <p className="text-xs font-black text-stone-400 uppercase tracking-wider mb-1">Categories</p>
             <p className="text-xs font-semibold text-stone-500 leading-relaxed">
-              Optional — create labels like Personal or Business to tag expenses and set separate monthly budgets.
+              Optional — tag income &amp; expenses (e.g. Personal, Business) with separate monthly budgets.
             </p>
           </div>
 

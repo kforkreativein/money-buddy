@@ -8,13 +8,32 @@ export interface Wallet {
   name: string;
   emoji: string;
   openingBalance?: number;
+  minBalance?: number;
 }
 
-export interface ExpenseCategory {
+export interface Category {
   id: string;
   name: string;
   emoji: string;
   budget: number;
+}
+
+/** @deprecated use Category */
+export type ExpenseCategory = Category;
+
+export interface CategoryTransfer {
+  id: string;
+  amount: number;
+  fromCategoryId: string;
+  toCategoryId: string;
+  note?: string;
+  date: string;
+  createdAt: number;
+}
+
+export interface SavingsGoal {
+  target: number;
+  label: string;
 }
 
 export interface RecurringRule {
@@ -25,7 +44,7 @@ export interface RecurringRule {
   walletId: string;
   categoryId?: string;
   frequency: Frequency;
-  nextDue: string; // YYYY-MM-DD
+  nextDue: string;
 }
 
 export interface Transaction {
@@ -37,6 +56,6 @@ export interface Transaction {
   bank?: Bank;
   walletId?: string;
   categoryId?: string;
-  date: string;       // YYYY-MM-DD
-  createdAt: number;  // Date.now()
+  date: string;
+  createdAt: number;
 }

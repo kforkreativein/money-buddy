@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Transaction, TxType, Frequency, Wallet, ExpenseCategory } from '@/lib/types';
+import { Transaction, TxType, Frequency, Wallet, Category } from '@/lib/types';
 import { getWallets, addWallet, legacyWalletId, walletToPaymentMode } from '@/lib/wallets';
 import { getCategories } from '@/lib/categories';
 import { addRule } from '@/lib/recurring';
@@ -34,7 +34,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
 
   const [recurring, setRecurring] = useState(false);
   const [frequency, setFrequency] = useState<Frequency>('monthly');
-  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string>('');
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
   }, [initial?.walletId, initial?.paymentMode, initial?.bank, initial?.categoryId]);
 
   useEffect(() => {
-    if (type !== 'expense') setCategoryId('');
+    if (type === 'investment') setCategoryId('');
   }, [type]);
 
   function handleAddWallet() {
@@ -77,7 +77,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
       walletId,
       paymentMode: pm.paymentMode,
       bank: pm.bank,
-      categoryId: type === 'expense' && categoryId ? categoryId : undefined,
+      categoryId: (type === 'income' || type === 'expense') && categoryId ? categoryId : undefined,
       date,
       createdAt: initial?.createdAt ?? Date.now(),
     };
@@ -98,7 +98,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         amount: amt,
         description: description.trim(),
         walletId,
-        categoryId: type === 'expense' && categoryId ? categoryId : undefined,
+        categoryId: (type === 'income' || type === 'expense') && categoryId ? categoryId : undefined,
         frequency,
         nextDue,
       });
@@ -205,7 +205,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         )}
       </div>
 
-      {type === 'expense' && categories.length > 0 && (
+      {(type === 'income' || type === 'expense') && categories.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-black text-stone-400 uppercase tracking-wider">Category (optional)</span>
           <div className="flex gap-2 flex-wrap">

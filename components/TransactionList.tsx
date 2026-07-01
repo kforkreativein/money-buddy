@@ -77,7 +77,7 @@ export default function TransactionList({
 
   function matchesCategory(t: Transaction): boolean {
     if (!categoryFilter) return true;
-    if (t.type !== 'expense') return false;
+    if (t.type !== 'income' && t.type !== 'expense') return false;
     if (categoryFilter === '__none') return !t.categoryId;
     return t.categoryId === categoryFilter;
   }
@@ -149,7 +149,7 @@ export default function TransactionList({
           <span className="text-5xl">{q ? '🔍' : '🪙'}</span>
           <p className="text-lg font-black text-stone-700">{q ? 'No results' : 'No entries yet!'}</p>
           <p className="text-sm font-semibold text-stone-500">
-            {q ? `Nothing matching "${search}"` : categoryFilter ? 'No expenses in this category yet' : 'Add your first entry above ☝️'}
+            {q ? `Nothing matching "${search}"` : categoryFilter ? 'No entries in this category yet' : 'Add your first entry above ☝️'}
           </p>
         </div>
       ) : (
@@ -158,6 +158,7 @@ export default function TransactionList({
             const groupIncome = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
             const groupExpense = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
             const groupInvestment = txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
+            const showInvestmentInGroup = !categoryFilter;
             return (
               <div key={key} className="flex flex-col gap-2">
                 {/* Month header */}
@@ -166,7 +167,7 @@ export default function TransactionList({
                   <div className="flex gap-2 text-xs font-bold">
                     {groupIncome > 0 && <span className="text-emerald-600">+{fmt(groupIncome)}</span>}
                     {groupExpense > 0 && <span className="text-rose-500">-{fmt(groupExpense)}</span>}
-                    {groupInvestment > 0 && <span className="text-blue-600">📈{fmt(groupInvestment)}</span>}
+                    {groupInvestment > 0 && showInvestmentInGroup && <span className="text-blue-600">📈{fmt(groupInvestment)}</span>}
                   </div>
                 </div>
 
@@ -202,7 +203,7 @@ export default function TransactionList({
                             {wl.emoji} {wl.name}
                           </span>
                         ); })()}
-                        {txn.categoryId && (() => {
+                        {txn.categoryId && (txn.type === 'income' || txn.type === 'expense') && (() => {
                           const cat = getCategoryById(txn.categoryId!);
                           if (!cat) return null;
                           return (

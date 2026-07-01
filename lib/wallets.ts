@@ -46,7 +46,7 @@ export function saveWallets(wallets: Wallet[]) {
   localStorage.setItem(storageKey(), JSON.stringify(wallets));
 }
 
-export function updateWallet(id: string, patch: Partial<Pick<Wallet, 'name' | 'emoji' | 'openingBalance'>>) {
+export function updateWallet(id: string, patch: Partial<Pick<Wallet, 'name' | 'emoji' | 'openingBalance' | 'minBalance'>>) {
   const updated = getWallets().map(w => w.id === id ? { ...w, ...patch } : w);
   saveWallets(updated);
   return updated;

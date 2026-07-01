@@ -86,6 +86,12 @@
 | 41 | Net balance / savings | ✅ Completed | Income − expense shown below stats cards, hidden by default with eye toggle |
 | 44 | User login (username + password) | ✅ Completed | Sign up / sign in screen, per-user isolated data, session remembered on this device |
 | 45 | Investment tracking | ✅ Completed | Third type alongside income/expense, own stats column, excluded from expense budget & net income |
-| 46 | Custom expense categories | ✅ Completed | Optional categories in Settings, per-category budgets, filter view & tags on expenses |
+| 46 | Custom expense categories | ✅ Completed | Optional categories in Settings, per-category budgets, filter view & tags on income/expense |
+| 47 | Savings goal | ✅ Completed | Target tracked via total investments, editable goal card |
+| 48 | Due reminders | ✅ Completed | Upcoming recurring rules due within 7 days |
+| 49 | Weekly summary | ✅ Completed | This week income, expense, investment, net |
+| 50 | Category transfer | ✅ Completed | Move funds between categories without wallet change |
+| 51 | Year-end report | ✅ Completed | Download CSV report with category & monthly breakdown |
+| 52 | Low balance alert | ✅ Completed | Per-wallet min balance alert when editing wallet |
 | 42 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
 | 43 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |

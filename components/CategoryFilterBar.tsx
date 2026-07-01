@@ -1,8 +1,8 @@
 'use client';
-import { ExpenseCategory } from '@/lib/types';
+import { Category } from '@/lib/types';
 
 interface Props {
-  categories: ExpenseCategory[];
+  categories: Category[];
   selected: string | null;
   onSelect: (id: string | null) => void;
 }

@@ -24,6 +24,7 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
   const [nameDraft, setNameDraft] = useState('');
   const [emojiDraft, setEmojiDraft] = useState('');
   const [balanceDraft, setBalanceDraft] = useState('');
+  const [minBalanceDraft, setMinBalanceDraft] = useState('');
 
   useEffect(() => { setWallets(getWallets()); }, [transactions]);
 
@@ -46,16 +47,19 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
     setNameDraft(w.name);
     setEmojiDraft(w.emoji);
     setBalanceDraft(w.openingBalance != null ? String(w.openingBalance) : '');
+    setMinBalanceDraft(w.minBalance != null ? String(w.minBalance) : '');
   }
 
   function saveEdit(id: string) {
     const name = nameDraft.trim();
     if (!name) return;
     const val = parseFloat(balanceDraft);
+    const minVal = parseFloat(minBalanceDraft);
     const updated = updateWallet(id, {
       name,
       emoji: emojiDraft || '💳',
       openingBalance: isNaN(val) ? undefined : val,
+      minBalance: isNaN(minVal) || minVal <= 0 ? undefined : minVal,
     });
     setWallets(updated);
     setEditingId(null);
@@ -154,6 +158,18 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
                     onChange={e => setNameDraft(e.target.value)}
                     placeholder="Wallet name"
                     className="clay flex-1 px-2 py-1 text-xs font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 min-w-0"
+                  />
+                </div>
+                <div className="flex gap-1.5">
+                  <span className="text-[10px] text-stone-400 font-bold self-center whitespace-nowrap">Alert&lt;</span>
+                  <span className="text-xs text-stone-400 font-bold self-center">₹</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={minBalanceDraft}
+                    onChange={e => setMinBalanceDraft(e.target.value)}
+                    placeholder="Low balance alert"
+                    className="flex-1 bg-transparent outline-none text-xs font-bold text-stone-700 placeholder:text-stone-400 min-w-0"
                   />
                 </div>
                 <div className="flex gap-1.5">
