@@ -130,6 +130,8 @@ export async function pullFromCloud(): Promise<boolean> {
     note: r.note ?? undefined,
     date: r.date,
     createdAt: r.created_at,
+    expenseTxnId: r.expense_txn_id ?? undefined,
+    incomeTxnId: r.income_txn_id ?? undefined,
   }));
 
   const recurring: RecurringRule[] = (recRes.data ?? []).map(r => ({
@@ -157,6 +159,16 @@ export async function pullFromCloud(): Promise<boolean> {
     budget: setRes.data?.monthly_budget ?? 0,
     onboardingDone: setRes.data?.onboarding_done ?? false,
   });
+
+  if (setRes.data?.streak_count != null || setRes.data?.last_visit_date) {
+    localStorage.setItem(
+      userKey('money_buddy_streak', userId),
+      JSON.stringify({
+        streak: setRes.data?.streak_count ?? 0,
+        lastVisitDate: setRes.data?.last_visit_date ?? '',
+      }),
+    );
+  }
 
   return true;
 }
@@ -237,6 +249,8 @@ export async function pushToCloud(): Promise<boolean> {
         note: t.note ?? null,
         date: t.date,
         created_at: t.createdAt,
+        expense_txn_id: t.expenseTxnId ?? null,
+        income_txn_id: t.incomeTxnId ?? null,
       })),
     );
     if (error) throw error;
@@ -272,6 +286,18 @@ export async function pushToCloud(): Promise<boolean> {
     user_id: userId,
     monthly_budget: local.budget,
     onboarding_done: local.onboardingDone,
+    streak_count: (() => {
+      try {
+        const raw = localStorage.getItem(userKey('money_buddy_streak', userId));
+        return raw ? (JSON.parse(raw).streak ?? 0) : 0;
+      } catch { return 0; }
+    })(),
+    last_visit_date: (() => {
+      try {
+        const raw = localStorage.getItem(userKey('money_buddy_streak', userId));
+        return raw ? (JSON.parse(raw).lastVisitDate ?? null) : null;
+      } catch { return null; }
+    })(),
   });
   if (setErr) throw setErr;
 

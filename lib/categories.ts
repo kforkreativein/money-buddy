@@ -46,3 +46,8 @@ export function deleteCategory(id: string) {
 export function getCategoryById(id: string): Category | undefined {
   return getCategories().find(c => c.id === id);
 }
+
+export function findCategoryByKeyword(categories: Category[], keyword: string): Category | undefined {
+  const k = keyword.toLowerCase();
+  return categories.find(c => c.name.toLowerCase().includes(k));
+}

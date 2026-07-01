@@ -12,6 +12,11 @@ export function isCurrentMonth(dateStr: string) {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
+export function isInMonth(dateStr: string, year: number, month: number) {
+  const d = new Date(dateStr);
+  return d.getMonth() === month && d.getFullYear() === year;
+}
+
 export function isCurrentWeek(dateStr: string) {
   const d = new Date(dateStr);
   const now = new Date();
@@ -125,4 +130,70 @@ export function downloadText(filename: string, content: string) {
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(content);
   a.download = filename;
   a.click();
+}
+
+export interface MonthSummary {
+  label: string;
+  year: number;
+  month: number;
+  income: number;
+  expense: number;
+  investment: number;
+  net: number;
+  categoryRows: Array<{
+    categoryId: string;
+    name: string;
+    emoji: string;
+    expense: number;
+    budget: number;
+    net: number;
+  }>;
+  transferTotal: number;
+}
+
+export function getPreviousMonthSummary(
+  transactions: Transaction[],
+  transfers: CategoryTransfer[],
+  categories: Category[],
+): MonthSummary {
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const year = prev.getFullYear();
+  const month = prev.getMonth();
+  const label = prev.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+  const txns = transactions.filter(t => isInMonth(t.date, year, month));
+  const xfer = transfers.filter(t => isInMonth(t.date, year, month));
+
+  const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const expense = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const investment = txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
+
+  const categoryRows = categories.map(cat => {
+    const monthExpense = txns.filter(t => t.type === 'expense' && t.categoryId === cat.id).reduce((s, t) => s + t.amount, 0);
+    const monthIncome = txns.filter(t => t.type === 'income' && t.categoryId === cat.id).reduce((s, t) => s + t.amount, 0);
+    const transferIn = xfer.filter(t => t.toCategoryId === cat.id).reduce((s, t) => s + t.amount, 0);
+    const transferOut = xfer.filter(t => t.fromCategoryId === cat.id).reduce((s, t) => s + t.amount, 0);
+
+    return {
+      categoryId: cat.id,
+      name: cat.name,
+      emoji: cat.emoji,
+      expense: monthExpense,
+      budget: cat.budget,
+      net: monthIncome - monthExpense + transferIn - transferOut,
+    };
+  });
+
+  return {
+    label,
+    year,
+    month,
+    income,
+    expense,
+    investment,
+    net: income - expense,
+    categoryRows,
+    transferTotal: xfer.reduce((s, t) => s + t.amount, 0),
+  };
 }

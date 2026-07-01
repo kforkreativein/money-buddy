@@ -31,6 +31,8 @@ export interface CategoryTransfer {
   note?: string;
   date: string;
   createdAt: number;
+  expenseTxnId?: string;
+  incomeTxnId?: string;
 }
 
 export interface SavingsGoal {

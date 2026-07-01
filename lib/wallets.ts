@@ -76,3 +76,11 @@ export function walletToPaymentMode(walletId: string): { paymentMode: 'gpay' | '
   if (walletId === 'gpay_yes') return { paymentMode: 'gpay', bank: 'yes_bank' };
   return { paymentMode: 'cash' };
 }
+
+export function walletNetBalance(walletId: string, transactions: import('./types').Transaction[]): number {
+  const w = getWallets().find(x => x.id === walletId);
+  const txNet = transactions
+    .filter(t => (t.walletId ?? legacyWalletId(t.paymentMode, t.bank)) === walletId)
+    .reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+  return (w?.openingBalance ?? 0) + txNet;
+}

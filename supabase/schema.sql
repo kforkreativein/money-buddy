@@ -71,6 +71,8 @@ create table if not exists public.category_transfers (
   note text,
   date date not null,
   created_at bigint not null,
+  expense_txn_id text,
+  income_txn_id text,
   primary key (user_id, id)
 );
 
@@ -108,7 +110,9 @@ create policy "goals_all_own" on public.savings_goals for all using (auth.uid() 
 create table if not exists public.user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   monthly_budget integer not null default 0,
-  onboarding_done boolean not null default false
+  onboarding_done boolean not null default false,
+  streak_count integer not null default 0,
+  last_visit_date text
 );
 
 alter table public.user_settings enable row level security;

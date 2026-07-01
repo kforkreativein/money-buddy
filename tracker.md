@@ -95,5 +95,15 @@
 | 52 | Low balance alert | ✅ Completed | Per-wallet min balance alert when editing wallet |
 | 53 | Supabase cloud sync | ✅ Completed | Optional; username login syncs across devices when env vars set. See SUPABASE_SETUP.md |
 | 54 | Category ↔ wallet linking | ✅ Completed | Link category to bank wallet in Settings; transfers auto-move between wallets |
-| 42 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
+| 55 | Can I afford this? check | ✅ Completed | Quick budget + wallet balance check before spending |
+| 56 | Transfer history + undo | ✅ Completed | List transfers; undo reverses category + wallet entries |
+| 57 | Monthly close summary | ✅ Completed | Last month income/expense/by-category recap card |
+| 58 | Personal / Business view mode | ✅ Completed | View toggle filters stats, list, charts |
+| 59 | Business profit snapshot | ✅ Completed | Business income − expense this month |
+| 60 | Daily welcome + streak | ✅ Completed | First visit each day greets you; streak badge in header |
+| 25 | Income confetti burst | ⬜ Removed | Replaced with calmer UX (no confetti/SFX) |
+| 26 | Income happy ascending tones | ⬜ Removed | Audio effects removed |
+| 27 | Expense sad descending tones | ⬜ Removed | Audio effects removed |
+| 28 | Emoji rain for big expenses | ⬜ Removed | Negative celebration removed |
+| 29 | Motivation banner toast | ⬜ Removed | Negative celebration removed |
 | 43 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |

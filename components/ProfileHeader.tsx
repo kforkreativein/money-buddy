@@ -10,11 +10,12 @@ function getGreeting() {
 }
 
 interface Props {
+  streak: number;
   onLogout: () => void;
   onOpenSettings: () => void;
 }
 
-export default function ProfileHeader({ onLogout, onOpenSettings }: Props) {
+export default function ProfileHeader({ streak, onLogout, onOpenSettings }: Props) {
   const [name, setName] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -102,7 +103,14 @@ export default function ProfileHeader({ onLogout, onOpenSettings }: Props) {
             <h1 className="text-2xl font-black text-stone-800 leading-tight">
               Hey {name ?? ''}!
             </h1>
-            <p className="text-xs font-semibold text-stone-400 mt-0.5">@{username}</p>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p className="text-xs font-semibold text-stone-400">@{username}</p>
+              {streak > 0 && (
+                <span className="text-[10px] font-black text-violet-700 bg-violet-100 border border-violet-200 px-2 py-0.5 rounded-full">
+                  🔥 {streak} day{streak === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="relative">
