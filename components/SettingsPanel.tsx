@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Category } from '@/lib/types';
+import { Category, Wallet } from '@/lib/types';
 import { getCategories, addCategory, updateCategory, deleteCategory } from '@/lib/categories';
+import { getWallets } from '@/lib/wallets';
 import { clearCategoryFromTransactions } from '@/lib/storage';
 import { clearTransfersForCategory } from '@/lib/transfers';
 import EmojiPicker from './EmojiPicker';
@@ -17,6 +18,7 @@ interface Props {
 
 export default function SettingsPanel({ onClose, onChange }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🏷️');
   const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
@@ -24,6 +26,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   function reload() {
     const cats = getCategories();
     setCategories(cats);
+    setWallets(getWallets());
     setBudgetDrafts(Object.fromEntries(
       cats.map(c => [c.id, c.budget > 0 ? String(c.budget) : ''])
     ));
@@ -56,6 +59,17 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
     onChange();
   }
 
+  function saveWallet(categoryId: string, walletId: string) {
+    updateCategory(categoryId, { walletId: walletId || undefined });
+    reload();
+    onChange();
+  }
+
+  function walletLabel(walletId: string) {
+    const w = wallets.find(x => x.id === walletId);
+    return w ? `${w.emoji} ${w.name}` : walletId;
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -74,7 +88,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
           <div>
             <p className="text-xs font-black text-stone-400 uppercase tracking-wider mb-1">Categories</p>
             <p className="text-xs font-semibold text-stone-500 leading-relaxed">
-              Optional — tag income &amp; expenses (e.g. Personal, Business) with separate monthly budgets.
+              Tag income &amp; expenses (e.g. Personal, Business). Link each category to a bank wallet — transfers between categories will move money automatically (e.g. Yes Bank → HDFC).
             </p>
           </div>
 
@@ -96,6 +110,27 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
                       Delete
                     </button>
                   </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-stone-400">Linked wallet</span>
+                    <select
+                      value={cat.walletId ?? ''}
+                      onChange={e => saveWallet(cat.id, e.target.value)}
+                      className="clay w-full px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none">
+                      <option value="">None — category only</option>
+                      {wallets.map(w => (
+                        <option key={w.id} value={w.id}>
+                          {w.emoji} {w.name}
+                        </option>
+                      ))}
+                    </select>
+                    {cat.walletId && (
+                      <p className="text-[10px] font-semibold text-violet-600">
+                        Transfers use {walletLabel(cat.walletId)}
+                      </p>
+                    )}
+                  </div>
+
                   <div className="flex gap-2 items-center">
                     <span className="text-xs font-bold text-stone-400">Budget</span>
                     <span className="text-stone-400 font-black">₹</span>

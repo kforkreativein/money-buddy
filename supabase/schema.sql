@@ -54,6 +54,7 @@ create table if not exists public.categories (
   name text not null,
   emoji text not null default '🏷️',
   budget integer not null default 0,
+  wallet_id text,
   primary key (user_id, id)
 );
 

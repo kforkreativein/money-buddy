@@ -17,6 +17,8 @@ Follow these steps once. After that, login and data sync across your phone, brow
 3. Copy all of it, paste into the SQL editor, click **Run**.
 4. You should see “Success” with no errors.
 
+**Already set up before?** Also run `supabase/migrations/add_category_wallet_id.sql` once (adds wallet linking for categories).
+
 ## 3. Turn off email confirmation (important)
 
 So you can sign up with username + password instantly:

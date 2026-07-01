@@ -33,7 +33,7 @@ export function addCategory(name: string, emoji: string): Category {
   return cat;
 }
 
-export function updateCategory(id: string, patch: Partial<Pick<Category, 'name' | 'emoji' | 'budget'>>) {
+export function updateCategory(id: string, patch: Partial<Pick<Category, 'name' | 'emoji' | 'budget' | 'walletId'>>) {
   const updated = getCategories().map(c => c.id === id ? { ...c, ...patch } : c);
   save(updated);
   return updated;

@@ -94,5 +94,6 @@
 | 51 | Year-end report | ✅ Completed | Download CSV report with category & monthly breakdown |
 | 52 | Low balance alert | ✅ Completed | Per-wallet min balance alert when editing wallet |
 | 53 | Supabase cloud sync | ✅ Completed | Optional; username login syncs across devices when env vars set. See SUPABASE_SETUP.md |
+| 54 | Category ↔ wallet linking | ✅ Completed | Link category to bank wallet in Settings; transfers auto-move between wallets |
 | 42 | Currency / language localization | ⬜ Not Started | Support for multiple Indian languages |
 | 43 | Dark mode | ⬜ Not Started | Not planned (warm cream is intentional) |

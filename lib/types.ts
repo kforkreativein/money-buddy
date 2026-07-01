@@ -16,6 +16,8 @@ export interface Category {
   name: string;
   emoji: string;
   budget: number;
+  /** Wallet used for this category — category transfers move money between linked wallets */
+  walletId?: string;
 }
 
 /** @deprecated use Category */

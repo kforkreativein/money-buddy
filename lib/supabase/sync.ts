@@ -119,6 +119,7 @@ export async function pullFromCloud(): Promise<boolean> {
     name: r.name,
     emoji: r.emoji,
     budget: r.budget ?? 0,
+    walletId: r.wallet_id ?? undefined,
   }));
 
   const transfers: CategoryTransfer[] = (trRes.data ?? []).map(r => ({
@@ -219,6 +220,7 @@ export async function pushToCloud(): Promise<boolean> {
         name: c.name,
         emoji: c.emoji,
         budget: c.budget,
+        wallet_id: c.walletId ?? null,
       })),
     );
     if (error) throw error;

@@ -183,7 +183,10 @@ export default function Home() {
         <DueReminders />
         <WeeklySummary transactions={transactions} />
         <CategoryBreakdown transactions={transactions} transfers={transfers} categories={categories} />
-        <CategoryTransferPanel categories={categories} onTransfer={() => { reloadTransfers(); reloadCategories(); }} />
+        <CategoryTransferPanel
+          categories={categories}
+          onTransfer={() => { reloadTransfers(); reloadCategories(); refresh(); }}
+        />
         <YearEndReport transactions={transactions} transfers={transfers} categories={categories} />
       </div>
 
