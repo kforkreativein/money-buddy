@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { login, register } from '@/lib/auth';
+import { useState, useEffect } from 'react';
+import { login, register, getSavedLoginCredentials } from '@/lib/auth';
 
 interface Props {
   onAuth: () => void;
@@ -13,6 +13,16 @@ export default function AuthScreen({ onAuth }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const saved = getSavedLoginCredentials();
+    if (saved) {
+      setUsername(saved.username);
+      setPassword(saved.password);
+    }
+    setReady(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +40,10 @@ export default function AuthScreen({ onAuth }: Props) {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!ready) {
+    return <div className="min-h-dvh" style={{ background: '#FFF7ED' }} />;
   }
 
   return (
@@ -51,10 +65,11 @@ export default function AuthScreen({ onAuth }: Props) {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3" autoComplete="on">
           {mode === 'signup' && (
             <input
               type="text"
+              name="displayName"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
               placeholder="Your first name"
@@ -64,15 +79,17 @@ export default function AuthScreen({ onAuth }: Props) {
           )}
           <input
             type="text"
+            name="username"
             value={username}
             onChange={e => setUsername(e.target.value)}
             placeholder="Username"
             autoComplete="username"
-            autoFocus
+            autoFocus={!username}
             className="clay w-full px-4 py-3 text-base font-bold text-stone-800 bg-transparent outline-none placeholder:text-stone-400"
           />
           <input
             type="password"
+            name="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Password"
@@ -100,7 +117,7 @@ export default function AuthScreen({ onAuth }: Props) {
         </button>
 
         <p className="text-[11px] text-stone-400 text-center leading-relaxed">
-          Your data is saved separately for each account on this device. Sign in again anytime — we&apos;ll remember you.
+          We remember your login on this device — just open the app and you&apos;re in!
         </p>
       </div>
     </div>
