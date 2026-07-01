@@ -134,7 +134,7 @@ export default function TransactionList({
           <span className="text-5xl">{q ? '🔍' : '🪙'}</span>
           <p className="text-lg font-black text-stone-700">{q ? 'No results' : 'No entries yet!'}</p>
           <p className="text-sm font-semibold text-stone-500">
-            {q ? `Nothing matching "${search}"` : 'Add your first income or expense above ☝️'}
+            {q ? `Nothing matching "${search}"` : 'Add your first entry above ☝️'}
           </p>
         </div>
       ) : (
@@ -142,6 +142,7 @@ export default function TransactionList({
           {groups.map(({ key, txns }) => {
             const groupIncome = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
             const groupExpense = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+            const groupInvestment = txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
             return (
               <div key={key} className="flex flex-col gap-2">
                 {/* Month header */}
@@ -150,18 +151,28 @@ export default function TransactionList({
                   <div className="flex gap-2 text-xs font-bold">
                     {groupIncome > 0 && <span className="text-emerald-600">+{fmt(groupIncome)}</span>}
                     {groupExpense > 0 && <span className="text-rose-500">-{fmt(groupExpense)}</span>}
+                    {groupInvestment > 0 && <span className="text-blue-600">📈{fmt(groupInvestment)}</span>}
                   </div>
                 </div>
 
-                {txns.map(txn => (
-                  <div key={txn.id}
-                    className={`animate-pop-in flex items-center gap-3 p-4 rounded-[20px] border-2 border-white/60 ${txn.type === 'income'
-                      ? 'bg-gradient-to-r from-emerald-50 to-white shadow-[5px_5px_10px_rgba(52,211,153,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
-                      : 'bg-gradient-to-r from-rose-50 to-white shadow-[5px_5px_10px_rgba(248,113,113,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'}`}>
+                {txns.map(txn => {
+                  const cardClass = txn.type === 'income'
+                    ? 'bg-gradient-to-r from-emerald-50 to-white shadow-[5px_5px_10px_rgba(52,211,153,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
+                    : txn.type === 'investment'
+                      ? 'bg-gradient-to-r from-blue-50 to-white shadow-[5px_5px_10px_rgba(96,165,250,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
+                      : 'bg-gradient-to-r from-rose-50 to-white shadow-[5px_5px_10px_rgba(248,113,113,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]';
+                  const iconClass = txn.type === 'income' ? 'clay-green' : txn.type === 'investment' ? 'clay-blue' : 'clay-red';
+                  const icon = txn.type === 'income' ? '💰' : txn.type === 'investment' ? '📈' : '💸';
+                  const amountClass = txn.type === 'income' ? 'text-emerald-600' : txn.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
+                  const amountPrefix = txn.type === 'income' ? '+' : '-';
 
-                    <div className={`text-2xl w-11 h-11 flex items-center justify-center rounded-[12px] flex-shrink-0 ${txn.type === 'income' ? 'clay-green' : 'clay-red'}`}
+                  return (
+                  <div key={txn.id}
+                    className={`animate-pop-in flex items-center gap-3 p-4 rounded-[20px] border-2 border-white/60 ${cardClass}`}>
+
+                    <div className={`text-2xl w-11 h-11 flex items-center justify-center rounded-[12px] flex-shrink-0 ${iconClass}`}
                       aria-hidden="true">
-                      {txn.type === 'income' ? '💰' : '💸'}
+                      {icon}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -180,8 +191,8 @@ export default function TransactionList({
                     </div>
 
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className={`font-black text-base ${txn.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                        {txn.type === 'income' ? '+' : '-'}{fmt(txn.amount)}
+                      <span className={`font-black text-base ${amountClass}`}>
+                        {amountPrefix}{fmt(txn.amount)}
                       </span>
                       <div className="flex gap-1.5">
                         <button onClick={() => setEditing(txn)}
@@ -197,7 +208,8 @@ export default function TransactionList({
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })}

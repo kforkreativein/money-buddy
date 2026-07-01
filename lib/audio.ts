@@ -27,6 +27,10 @@ export function playIncomeSound() {
   playTones([NOTES.C4, NOTES.E4, NOTES.G4, NOTES.C5]);
 }
 
+export function playInvestmentSound() {
+  playTones([NOTES.E3, NOTES.G3, NOTES.C4, NOTES.E4], 0.14, 0.9);
+}
+
 // level 1–6, gets slower and lower as level increases
 const EXPENSE_SEQUENCES: number[][] = [
   [NOTES.E4, NOTES.D4, NOTES.C4],           // 1: mild

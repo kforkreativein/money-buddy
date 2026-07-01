@@ -49,13 +49,16 @@ export default function RecurringManager({ onRefresh }: { onRefresh: () => void 
               <span className="text-xs">Toggle &ldquo;Make this recurring&rdquo; when adding an entry.</span>
             </p>
           ) : (
-            rules.map(r => (
+            rules.map(r => {
+              const bg = r.type === 'income'
+                ? 'bg-gradient-to-r from-emerald-50 to-white'
+                : r.type === 'investment'
+                  ? 'bg-gradient-to-r from-blue-50 to-white'
+                  : 'bg-gradient-to-r from-rose-50 to-white';
+              const amountClass = r.type === 'income' ? 'text-emerald-600' : r.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
+              return (
               <div key={r.id}
-                className={`flex items-center gap-3 p-3 rounded-[14px] border-2 border-white/60 ${
-                  r.type === 'income'
-                    ? 'bg-gradient-to-r from-emerald-50 to-white'
-                    : 'bg-gradient-to-r from-rose-50 to-white'
-                }`}>
+                className={`flex items-center gap-3 p-3 rounded-[14px] border-2 border-white/60 ${bg}`}>
                 <span className="text-xl">{walletEmoji(r.walletId)}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-black text-stone-800 text-sm truncate">{r.description || fmt(r.amount)}</p>
@@ -64,7 +67,7 @@ export default function RecurringManager({ onRefresh }: { onRefresh: () => void 
                   </p>
                   <p className="text-xs text-stone-400 font-semibold">Next: {fmtDate(r.nextDue)}</p>
                 </div>
-                <span className={`text-sm font-black flex-shrink-0 ${r.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                <span className={`text-sm font-black flex-shrink-0 ${amountClass}`}>
                   {r.type === 'income' ? '+' : '-'}{fmt(r.amount)}
                 </span>
                 <button onClick={() => handleDelete(r.id)}
@@ -72,7 +75,8 @@ export default function RecurringManager({ onRefresh }: { onRefresh: () => void 
                   🗑️
                 </button>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

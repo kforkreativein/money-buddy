@@ -1,4 +1,4 @@
-export type TxType = 'income' | 'expense';
+export type TxType = 'income' | 'expense' | 'investment';
 export type PaymentMode = 'gpay' | 'cash';
 export type Bank = 'yes_bank' | 'hdfc';
 export type Frequency = 'daily' | 'weekly' | 'monthly';

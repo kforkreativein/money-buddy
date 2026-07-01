@@ -87,7 +87,13 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
   }
 
   const isEdit = !!initial;
-  const submitLabel = isEdit ? 'Save Changes ✅' : type === 'income' ? 'Add Income 💚' : 'Add Expense ❤️';
+  const submitLabel = isEdit
+    ? 'Save Changes ✅'
+    : type === 'income'
+      ? 'Add Income 💚'
+      : type === 'investment'
+        ? 'Add Investment 📈'
+        : 'Add Expense ❤️';
 
   return (
     <form onSubmit={handleSubmit} className="clay p-5 flex flex-col gap-4">
@@ -96,16 +102,18 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
       </h2>
 
       {/* Type toggle */}
-      <div className="flex gap-2">
-        {(['income', 'expense'] as TxType[]).map(t => (
+      <div className="grid grid-cols-3 gap-2">
+        {([
+          { t: 'income' as TxType, label: '💚 Income', active: 'clay-green text-emerald-900' },
+          { t: 'expense' as TxType, label: '❤️ Expense', active: 'clay-red text-red-900' },
+          { t: 'investment' as TxType, label: '📈 Invest', active: 'clay-blue text-blue-900' },
+        ]).map(({ t, label, active }) => (
           <button key={t} type="button"
             onClick={() => setType(t)}
-            className={`clay-btn flex-1 py-3 rounded-[14px] font-black text-base transition-all ${
-              type === t
-                ? t === 'income' ? 'clay-green text-emerald-900' : 'clay-red text-red-900'
-                : 'bg-stone-100 text-stone-400 shadow-none border border-stone-200'
+            className={`clay-btn py-3 rounded-[14px] font-black text-sm transition-all ${
+              type === t ? active : 'bg-stone-100 text-stone-400 shadow-none border border-stone-200'
             }`}>
-            {t === 'income' ? '💚 Income' : '❤️ Expense'}
+            {label}
           </button>
         ))}
       </div>
@@ -224,7 +232,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         )}
         <button type="submit"
           className={`clay-btn flex-1 py-3 rounded-[16px] font-black text-white text-base shadow-lg ${
-            type === 'income' ? 'bg-emerald-400' : 'bg-rose-400'
+            type === 'income' ? 'bg-emerald-400' : type === 'investment' ? 'bg-blue-400' : 'bg-rose-400'
           }`}>
           {submitLabel}
         </button>

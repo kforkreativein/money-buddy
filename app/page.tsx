@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Transaction } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
-import { playIncomeSound, playExpenseSound, getSadnessLevel } from '@/lib/audio';
+import { playIncomeSound, playExpenseSound, playInvestmentSound, getSadnessLevel } from '@/lib/audio';
 import { applyDueRecurring } from '@/lib/recurring';
 import { userStorageKey, restoreAuth } from '@/lib/auth';
 import Onboarding from '@/components/Onboarding';
@@ -16,7 +16,7 @@ import BottomTools from '@/components/BottomTools';
 import InsightsChart from '@/components/InsightsChart';
 import EffectsLayer from '@/components/EffectsLayer';
 
-type EffectTrigger = { type: 'income' | 'expense'; amount: number; key: number } | null;
+type EffectTrigger = { type: 'income' | 'expense' | 'investment'; amount: number; key: number } | null;
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -75,6 +75,7 @@ export default function Home() {
     refresh();
     setShowForm(false);
     if (txn.type === 'income') playIncomeSound();
+    else if (txn.type === 'investment') playInvestmentSound();
     else playExpenseSound(getSadnessLevel(txn.amount));
     setEffectTrigger({ type: txn.type, amount: txn.amount, key: Date.now() });
   }, [refresh]);
@@ -115,7 +116,7 @@ export default function Home() {
           <button
             onClick={() => setShowForm(true)}
             className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center">
-            ➕ Add Income / Expense
+            ➕ Add Income / Expense / Invest
           </button>
         )}
 

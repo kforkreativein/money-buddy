@@ -16,7 +16,7 @@ const MOTIVATION = [
 ];
 
 interface Props {
-  trigger: { type: 'income' | 'expense'; amount: number; key: number } | null;
+  trigger: { type: 'income' | 'expense' | 'investment'; amount: number; key: number } | null;
 }
 
 const BANNER_DURATION = 10000; // 10s
@@ -37,6 +37,12 @@ export default function EffectsLayer({ trigger }: Props) {
       confetti({ particleCount: 160, spread: 90, origin: { y: 0.55 }, colors: ['#34d399', '#60a5fa', '#a78bfa', '#fbbf24', '#f87171'] });
       setTimeout(() => confetti({ particleCount: 80, spread: 120, origin: { y: 0.4 }, colors: ['#34d399', '#a78bfa', '#fbbf24'] }), 800);
       setTimeout(() => confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 }, colors: ['#60a5fa', '#f87171', '#34d399'] }), 2000);
+      return;
+    }
+
+    if (trigger.type === 'investment') {
+      confetti({ particleCount: 90, spread: 70, origin: { y: 0.55 }, colors: ['#60a5fa', '#818cf8', '#a78bfa', '#34d399'] });
+      setTimeout(() => confetti({ particleCount: 40, spread: 100, origin: { y: 0.45 }, colors: ['#60a5fa', '#a78bfa'] }), 600);
       return;
     }
 

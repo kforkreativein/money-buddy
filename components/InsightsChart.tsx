@@ -28,12 +28,13 @@ export default function InsightsChart({ transactions }: { transactions: Transact
       label: monthLabel(key),
       income: txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
       expense: txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+      investment: txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     };
   });
 
-  if (!data.some(d => d.income > 0 || d.expense > 0)) return null;
+  if (!data.some(d => d.income > 0 || d.expense > 0 || d.investment > 0)) return null;
 
-  const max = Math.max(...data.flatMap(d => [d.income, d.expense]), 1);
+  const max = Math.max(...data.flatMap(d => [d.income, d.expense, d.investment]), 1);
 
   return (
     <div className="clay p-4 flex flex-col gap-3">
@@ -41,7 +42,7 @@ export default function InsightsChart({ transactions }: { transactions: Transact
       <div className="flex items-end gap-3 h-24">
         {data.map(d => (
           <div key={d.key} className="flex-1 flex flex-col items-center gap-1">
-            <div className="w-full flex gap-1 items-end" style={{ height: '80px' }}>
+            <div className="w-full flex gap-0.5 items-end" style={{ height: '80px' }}>
               <div
                 className="flex-1 rounded-t-[6px] clay-green transition-all duration-500"
                 style={{ height: `${(d.income / max) * 100}%`, minHeight: d.income > 0 ? '4px' : '0' }}
@@ -50,12 +51,16 @@ export default function InsightsChart({ transactions }: { transactions: Transact
                 className="flex-1 rounded-t-[6px] clay-red transition-all duration-500"
                 style={{ height: `${(d.expense / max) * 100}%`, minHeight: d.expense > 0 ? '4px' : '0' }}
               />
+              <div
+                className="flex-1 rounded-t-[6px] clay-blue transition-all duration-500"
+                style={{ height: `${(d.investment / max) * 100}%`, minHeight: d.investment > 0 ? '4px' : '0' }}
+              />
             </div>
             <span className="text-xs font-bold text-stone-400">{d.label}</span>
           </div>
         ))}
       </div>
-      <div className="flex gap-4 text-xs font-bold text-stone-500">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-stone-500">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm clay-green inline-block" />
           Income
@@ -63,6 +68,10 @@ export default function InsightsChart({ transactions }: { transactions: Transact
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm clay-red inline-block" />
           Expense
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm clay-blue inline-block" />
+          Investment
         </span>
       </div>
     </div>
