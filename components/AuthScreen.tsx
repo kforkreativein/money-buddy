@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { login, register, getSavedLoginCredentials } from '@/lib/auth';
+import { login, register, getSavedLoginCredentials, isStandalonePwa } from '@/lib/auth';
 
 interface Props {
   onAuth: () => void;
@@ -14,8 +14,10 @@ export default function AuthScreen({ onAuth }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [inPwa, setInPwa] = useState(false);
 
   useEffect(() => {
+    setInPwa(isStandalonePwa());
     const saved = getSavedLoginCredentials();
     if (saved) {
       setUsername(saved.username);
@@ -37,6 +39,9 @@ export default function AuthScreen({ onAuth }: Props) {
         return;
       }
       onAuth();
+    } catch (err) {
+      console.error('auth submit failed', err);
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -65,6 +70,12 @@ export default function AuthScreen({ onAuth }: Props) {
           </p>
         </div>
 
+        {inPwa && (
+          <p className="text-xs font-semibold text-violet-700 text-center leading-relaxed bg-violet-50 border border-violet-200 rounded-[12px] px-3 py-2">
+            📱 Home-screen app tip: sign up or sign in here inside the app icon. Accounts from Safari/browser are separate.
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-3" autoComplete="on">
           {mode === 'signup' && (
             <input
@@ -84,6 +95,9 @@ export default function AuthScreen({ onAuth }: Props) {
             onChange={e => setUsername(e.target.value)}
             placeholder="Username"
             autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             autoFocus={!username}
             className="clay w-full px-4 py-3 text-base font-bold text-stone-800 bg-transparent outline-none placeholder:text-stone-400"
           />
@@ -98,7 +112,7 @@ export default function AuthScreen({ onAuth }: Props) {
           />
 
           {error && (
-            <p className="text-sm font-bold text-rose-500 text-center">{error}</p>
+            <p className="text-sm font-bold text-rose-500 text-center leading-relaxed">{error}</p>
           )}
 
           <button
@@ -117,7 +131,7 @@ export default function AuthScreen({ onAuth }: Props) {
         </button>
 
         <p className="text-[11px] text-stone-400 text-center leading-relaxed">
-          We remember your login on this device — just open the app and you&apos;re in!
+          We remember your login in this app — open it again and you stay signed in.
         </p>
       </div>
     </div>
