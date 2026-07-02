@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Transaction, Category, CategoryTransfer } from '@/lib/types';
 import { computeCategoryTotals, fmt, isCurrentMonth } from '@/lib/insights';
+import { sumRealExpense, sumRealIncome } from '@/lib/transfers';
 
 function currentMonthLabel() {
   return new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -22,9 +23,10 @@ export default function StatsBar({ transactions, budget, categories, categoryFil
   const [showNet, setShowNet] = useState(false);
 
   const monthly = transactions.filter(t => isCurrentMonth(t.date));
+  const monthTransfers = transfers.filter(t => isCurrentMonth(t.date));
 
-  const income = monthly.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = monthly.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const income = sumRealIncome(monthly, monthTransfers);
+  const expense = sumRealExpense(monthly, monthTransfers);
   const investment = monthly.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
   const net = income - expense;
 

@@ -229,7 +229,7 @@ export default function Home() {
           style={{ background: 'rgba(28,25,23,0.55)' }}
           onClick={() => setShowForm(false)}>
           <div
-            className="w-full max-w-sm max-h-[92dvh] overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
+            className="w-full max-w-sm max-h-[92dvh] overflow-y-auto rounded-t-[24px] sm:rounded-[24px]"
             onClick={e => e.stopPropagation()}>
             <TransactionForm
               onSave={handleSave}

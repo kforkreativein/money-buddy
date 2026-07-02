@@ -1,5 +1,6 @@
 'use client';
 import { Transaction } from '@/lib/types';
+import { getTransfers, sumRealExpense, sumRealIncome } from '@/lib/transfers';
 
 function monthKey(dateStr: string) {
   const d = new Date(dateStr);
@@ -21,13 +22,16 @@ export default function InsightsChart({ transactions }: { transactions: Transact
     months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
+  const transfers = getTransfers();
+
   const data = months.map(key => {
     const txns = transactions.filter(t => monthKey(t.date) === key);
+    const monthTransfers = transfers.filter(t => monthKey(t.date) === key);
     return {
       key,
       label: monthLabel(key),
-      income: txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-      expense: txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+      income: sumRealIncome(txns, monthTransfers),
+      expense: sumRealExpense(txns, monthTransfers),
       investment: txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     };
   });

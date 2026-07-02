@@ -4,6 +4,7 @@ import { Transaction, Wallet } from '@/lib/types';
 import { getWallets, legacyWalletId } from '@/lib/wallets';
 import { getCategories, getCategoryById } from '@/lib/categories';
 import { findRuleForTransaction } from '@/lib/recurring';
+import { getTransfers, getInternalTransferTxnIds, isInternalTransferTxn, sumRealExpense, sumRealIncome } from '@/lib/transfers';
 import TransactionForm from './TransactionForm';
 
 function walletLabel(t: Transaction, wallets: Wallet[]): { emoji: string; name: string } {
@@ -65,6 +66,7 @@ export default function TransactionList({
   useEffect(() => { setWallets(getWallets()); }, [transactions]);
   useEffect(() => { setShowAll(false); }, [walletFilter, categoryFilter]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transferTxnIds = getInternalTransferTxnIds(getTransfers());
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -167,8 +169,8 @@ export default function TransactionList({
       ) : (
         <div className="flex flex-col gap-4">
           {groups.map(({ key, txns }) => {
-            const groupIncome = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-            const groupExpense = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+            const groupIncome = sumRealIncome(txns, getTransfers());
+            const groupExpense = sumRealExpense(txns, getTransfers());
             const groupInvestment = txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
             const showInvestmentInGroup = !categoryFilter;
             return (
@@ -184,14 +186,17 @@ export default function TransactionList({
                 </div>
 
                 {txns.map(txn => {
-                  const cardClass = txn.type === 'income'
+                  const isTransfer = isInternalTransferTxn(txn, transferTxnIds);
+                  const cardClass = isTransfer
+                    ? 'bg-gradient-to-r from-violet-50 to-white shadow-[5px_5px_10px_rgba(167,139,250,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
+                    : txn.type === 'income'
                     ? 'bg-gradient-to-r from-emerald-50 to-white shadow-[5px_5px_10px_rgba(52,211,153,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
                     : txn.type === 'investment'
                       ? 'bg-gradient-to-r from-blue-50 to-white shadow-[5px_5px_10px_rgba(96,165,250,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
                       : 'bg-gradient-to-r from-rose-50 to-white shadow-[5px_5px_10px_rgba(248,113,113,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]';
-                  const iconClass = txn.type === 'income' ? 'clay-green' : txn.type === 'investment' ? 'clay-blue' : 'clay-red';
-                  const icon = txn.type === 'income' ? '💰' : txn.type === 'investment' ? '📈' : '💸';
-                  const amountClass = txn.type === 'income' ? 'text-emerald-600' : txn.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
+                  const iconClass = isTransfer ? 'clay-purple' : txn.type === 'income' ? 'clay-green' : txn.type === 'investment' ? 'clay-blue' : 'clay-red';
+                  const icon = isTransfer ? '🔁' : txn.type === 'income' ? '💰' : txn.type === 'investment' ? '📈' : '💸';
+                  const amountClass = isTransfer ? 'text-violet-700' : txn.type === 'income' ? 'text-emerald-600' : txn.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
                   const amountPrefix = txn.type === 'income' ? '+' : '-';
 
                   return (
@@ -227,6 +232,11 @@ export default function TransactionList({
                         {findRuleForTransaction(txn) && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                             🔄 Recurring
+                          </span>
+                        )}
+                        {isTransfer && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
+                            Internal transfer
                           </span>
                         )}
                       </div>
@@ -272,7 +282,7 @@ export default function TransactionList({
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)', paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}
           onClick={e => { if (e.target === e.currentTarget) setEditing(null); }}>
-          <div className="w-full max-w-sm animate-slide-up max-h-[92dvh] overflow-hidden rounded-t-[24px] sm:rounded-[24px]">
+          <div className="w-full max-w-sm animate-slide-up max-h-[92dvh] overflow-y-auto rounded-t-[24px] sm:rounded-[24px]">
             <TransactionForm
               initial={editing}
               onSave={txn => { onUpdate(txn); setEditing(null); }}

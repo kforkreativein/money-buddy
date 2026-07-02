@@ -117,7 +117,7 @@ export default function TransactionForm({ initial, onSave, onCancel, onRecurring
         : 'Add Expense ❤️';
 
   return (
-    <form onSubmit={handleSubmit} className="clay p-5 flex flex-col gap-4 max-h-[85dvh] overflow-y-auto overscroll-contain">
+    <form onSubmit={handleSubmit} className="clay p-5 flex flex-col gap-4 max-h-[88dvh] overflow-y-auto overscroll-contain">
       <h2 className="text-lg font-black text-stone-700 text-center">
         {isEdit ? `✏️ Edit Entry${recurring ? ' 🔄' : ''}` : '➕ New Entry'}
       </h2>
@@ -234,7 +234,7 @@ export default function TransactionForm({ initial, onSave, onCancel, onRecurring
       <div className="flex flex-col gap-2">
         <button type="button"
           onClick={() => setRecurring(v => !v)}
-          className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm min-h-[44px] transition-all ${
+          className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm min-h-[48px] transition-all ${
             recurring ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
           }`}>
           <span>🔄 {isEdit ? 'Recurring rule' : 'Make this recurring'}</span>
@@ -243,11 +243,11 @@ export default function TransactionForm({ initial, onSave, onCancel, onRecurring
           </span>
         </button>
         {recurring && (
-          <div className="flex gap-2 animate-pop-in">
+          <div className="grid grid-cols-3 gap-2 animate-pop-in">
             {(['daily', 'weekly', 'monthly'] as Frequency[]).map(f => (
               <button key={f} type="button"
                 onClick={() => setFrequency(f)}
-                className={`clay-btn flex-1 py-2.5 rounded-[12px] font-bold text-xs min-h-[44px] transition-all ${
+                className={`clay-btn py-3 rounded-[12px] font-bold text-sm min-h-[48px] transition-all ${
                   frequency === f ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-400 border border-stone-200 shadow-none'
                 }`}>
                 {FREQ_LABELS[f]}

@@ -1,4 +1,5 @@
 import { Transaction, Category, CategoryTransfer } from './types';
+import { getInternalTransferTxnIds, isInternalTransferTxn } from './transfers';
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -46,14 +47,19 @@ export function computeCategoryTotals(
 ): CategoryTotals {
   const txns = monthOnly ? transactions.filter(t => isCurrentMonth(t.date)) : transactions;
   const xfer = monthOnly ? transfers.filter(t => isCurrentMonth(t.date)) : transfers;
+  const transferTxnIds = getInternalTransferTxnIds(xfer);
 
   const match = (t: Transaction) => {
     if (categoryId === null) return !t.categoryId;
     return t.categoryId === categoryId;
   };
 
-  const income = txns.filter(t => t.type === 'income' && match(t)).reduce((s, t) => s + t.amount, 0);
-  const expense = txns.filter(t => t.type === 'expense' && match(t)).reduce((s, t) => s + t.amount, 0);
+  const income = txns
+    .filter(t => t.type === 'income' && match(t) && !isInternalTransferTxn(t, transferTxnIds))
+    .reduce((s, t) => s + t.amount, 0);
+  const expense = txns
+    .filter(t => t.type === 'expense' && match(t) && !isInternalTransferTxn(t, transferTxnIds))
+    .reduce((s, t) => s + t.amount, 0);
 
   const transferIn = categoryId
     ? xfer.filter(t => t.toCategoryId === categoryId).reduce((s, t) => s + t.amount, 0)
@@ -84,9 +90,10 @@ export function generateYearReport(
 ): string {
   const txns = transactions.filter(t => new Date(t.date).getFullYear() === year);
   const xfer = transfers.filter(t => new Date(t.date).getFullYear() === year);
+  const transferTxnIds = getInternalTransferTxnIds(xfer);
 
-  const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const income = txns.filter(t => t.type === 'income' && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
+  const expense = txns.filter(t => t.type === 'expense' && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
   const investment = txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
 
   const lines = [
@@ -115,8 +122,8 @@ export function generateYearReport(
   for (let m = 0; m < 12; m++) {
     const monthTxns = txns.filter(t => new Date(t.date).getMonth() === m);
     if (monthTxns.length === 0) continue;
-    const mi = monthTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const me = monthTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const mi = monthTxns.filter(t => t.type === 'income' && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
+    const me = monthTxns.filter(t => t.type === 'expense' && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
     const minv = monthTxns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
     const label = new Date(year, m).toLocaleDateString('en-IN', { month: 'long' });
     lines.push(`${label},${mi},${me},${minv},${mi - me}`);
@@ -164,14 +171,15 @@ export function getPreviousMonthSummary(
 
   const txns = transactions.filter(t => isInMonth(t.date, year, month));
   const xfer = transfers.filter(t => isInMonth(t.date, year, month));
+  const transferTxnIds = getInternalTransferTxnIds(xfer);
 
-  const income = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const income = txns.filter(t => t.type === 'income' && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
+  const expense = txns.filter(t => t.type === 'expense' && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
   const investment = txns.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
 
   const categoryRows = categories.map(cat => {
-    const monthExpense = txns.filter(t => t.type === 'expense' && t.categoryId === cat.id).reduce((s, t) => s + t.amount, 0);
-    const monthIncome = txns.filter(t => t.type === 'income' && t.categoryId === cat.id).reduce((s, t) => s + t.amount, 0);
+    const monthExpense = txns.filter(t => t.type === 'expense' && t.categoryId === cat.id && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
+    const monthIncome = txns.filter(t => t.type === 'income' && t.categoryId === cat.id && !isInternalTransferTxn(t, transferTxnIds)).reduce((s, t) => s + t.amount, 0);
     const transferIn = xfer.filter(t => t.toCategoryId === cat.id).reduce((s, t) => s + t.amount, 0);
     const transferOut = xfer.filter(t => t.fromCategoryId === cat.id).reduce((s, t) => s + t.amount, 0);
 

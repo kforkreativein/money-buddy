@@ -1,4 +1,4 @@
-import { CategoryTransfer } from './types';
+import { CategoryTransfer, Transaction } from './types';
 import { userStorageKey } from './auth';
 import { scheduleCloudSync } from './supabase/sync';
 import { getCategoryById } from './categories';
@@ -127,4 +127,34 @@ export function deleteTransfer(id: string) {
 
 export function clearTransfersForCategory(categoryId: string) {
   save(getTransfers().filter(t => t.fromCategoryId !== categoryId && t.toCategoryId !== categoryId));
+}
+
+/** Transaction IDs created when moving money between linked wallets for a category transfer. */
+export function getInternalTransferTxnIds(transfers: CategoryTransfer[]): Set<string> {
+  const ids = new Set<string>();
+  for (const t of transfers) {
+    if (t.expenseTxnId) ids.add(t.expenseTxnId);
+    if (t.incomeTxnId) ids.add(t.incomeTxnId);
+  }
+  return ids;
+}
+
+/** Wallet moves from category transfers — not real income or expense. */
+export function isInternalTransferTxn(txn: Transaction, transferTxnIds?: Set<string>): boolean {
+  if (transferTxnIds?.has(txn.id)) return true;
+  return txn.description.startsWith('Transfer →') || txn.description.startsWith('Transfer ←');
+}
+
+export function sumRealIncome(transactions: Transaction[], transfers: CategoryTransfer[]): number {
+  const ids = getInternalTransferTxnIds(transfers);
+  return transactions
+    .filter(t => t.type === 'income' && !isInternalTransferTxn(t, ids))
+    .reduce((s, t) => s + t.amount, 0);
+}
+
+export function sumRealExpense(transactions: Transaction[], transfers: CategoryTransfer[]): number {
+  const ids = getInternalTransferTxnIds(transfers);
+  return transactions
+    .filter(t => t.type === 'expense' && !isInternalTransferTxn(t, ids))
+    .reduce((s, t) => s + t.amount, 0);
 }

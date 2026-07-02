@@ -1,13 +1,15 @@
 'use client';
 import { Transaction } from '@/lib/types';
 import { isCurrentWeek, fmt } from '@/lib/insights';
+import { getTransfers, sumRealExpense, sumRealIncome } from '@/lib/transfers';
 
 export default function WeeklySummary({ transactions }: { transactions: Transaction[] }) {
   const week = transactions.filter(t => isCurrentWeek(t.date));
   if (week.length === 0) return null;
 
-  const income = week.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = week.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const transfers = getTransfers().filter(t => isCurrentWeek(t.date));
+  const income = sumRealIncome(week, transfers);
+  const expense = sumRealExpense(week, transfers);
   const investment = week.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
   const net = income - expense;
 
