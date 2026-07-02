@@ -75,11 +75,29 @@ function readLocal(userId: string) {
   };
 }
 
+function hasMeaningfulData(data: {
+  transactions: Transaction[];
+  categories: Category[];
+  transfers: CategoryTransfer[];
+  recurring: RecurringRule[];
+  goal: SavingsGoal | null;
+}): boolean {
+  return (
+    data.transactions.length > 0 ||
+    data.categories.length > 0 ||
+    data.transfers.length > 0 ||
+    data.recurring.length > 0 ||
+    data.goal != null
+  );
+}
+
 /** Download cloud data into localStorage (source of truth on login). */
 export async function pullFromCloud(): Promise<boolean> {
   const supabase = getSupabase();
   const userId = getUserId();
   if (!supabase || !userId) return false;
+
+  const localBeforePull = readLocal(userId);
 
   const [txRes, walRes, catRes, trRes, recRes, goalRes, setRes] = await Promise.all([
     supabase.from('transactions').select('*').eq('user_id', userId),
@@ -151,7 +169,7 @@ export async function pullFromCloud(): Promise<boolean> {
     ? { target: goalRes.data.target, label: goalRes.data.label }
     : null;
 
-  writeLocal(userId, {
+  const cloudData = {
     transactions,
     wallets,
     categories,
@@ -160,7 +178,19 @@ export async function pullFromCloud(): Promise<boolean> {
     goal,
     budget: setRes.data?.monthly_budget ?? 0,
     onboardingDone: setRes.data?.onboarding_done ?? false,
-  });
+  };
+
+  const cloudEmpty = !hasMeaningfulData(cloudData);
+  const localHasData = hasMeaningfulData(localBeforePull);
+
+  // Never wipe local entries when Supabase is empty (failed sync, grace period, new account).
+  if (cloudEmpty && localHasData) {
+    console.warn('Cloud empty but local has data — keeping local and uploading');
+    await pushToCloud();
+    return true;
+  }
+
+  writeLocal(userId, cloudData);
 
   if (setRes.data?.streak_count != null || setRes.data?.last_visit_date) {
     localStorage.setItem(
@@ -183,7 +213,7 @@ export async function pullFromCloud(): Promise<boolean> {
   return true;
 }
 
-/** Upload local data to cloud (full sync). */
+/** Upload local data to cloud (upsert + prune — never delete-first). */
 export async function pushToCloud(): Promise<boolean> {
   const supabase = getSupabase();
   const userId = getUserId();
@@ -191,18 +221,8 @@ export async function pushToCloud(): Promise<boolean> {
 
   const local = readLocal(userId);
 
-  await Promise.all([
-    supabase.from('transactions').delete().eq('user_id', userId),
-    supabase.from('wallets').delete().eq('user_id', userId),
-    supabase.from('categories').delete().eq('user_id', userId),
-    supabase.from('category_transfers').delete().eq('user_id', userId),
-    supabase.from('recurring_rules').delete().eq('user_id', userId),
-    supabase.from('savings_goals').delete().eq('user_id', userId),
-    supabase.from('user_settings').delete().eq('user_id', userId),
-  ]);
-
   if (local.transactions.length) {
-    const { error } = await supabase.from('transactions').insert(
+    const { error } = await supabase.from('transactions').upsert(
       local.transactions.map(t => ({
         id: t.id,
         user_id: userId,
@@ -217,12 +237,23 @@ export async function pushToCloud(): Promise<boolean> {
         date: t.date,
         created_at: t.createdAt,
       })),
+      { onConflict: 'user_id,id' },
     );
     if (error) throw error;
   }
+  {
+    const keep = new Set(local.transactions.map(t => t.id));
+    const { data, error } = await supabase.from('transactions').select('id').eq('user_id', userId);
+    if (error) throw error;
+    const remove = (data ?? []).map(r => r.id).filter(id => !keep.has(id));
+    if (remove.length) {
+      const { error: delErr } = await supabase.from('transactions').delete().eq('user_id', userId).in('id', remove);
+      if (delErr) throw delErr;
+    }
+  }
 
   if (local.wallets.length) {
-    const { error } = await supabase.from('wallets').insert(
+    const { error } = await supabase.from('wallets').upsert(
       local.wallets.map(w => ({
         id: w.id,
         user_id: userId,
@@ -231,12 +262,23 @@ export async function pushToCloud(): Promise<boolean> {
         opening_balance: w.openingBalance ?? null,
         min_balance: w.minBalance ?? null,
       })),
+      { onConflict: 'user_id,id' },
     );
     if (error) throw error;
   }
+  {
+    const keep = new Set(local.wallets.map(w => w.id));
+    const { data, error } = await supabase.from('wallets').select('id').eq('user_id', userId);
+    if (error) throw error;
+    const remove = (data ?? []).map(r => r.id).filter(id => !keep.has(id));
+    if (remove.length) {
+      const { error: delErr } = await supabase.from('wallets').delete().eq('user_id', userId).in('id', remove);
+      if (delErr) throw delErr;
+    }
+  }
 
   if (local.categories.length) {
-    const { error } = await supabase.from('categories').insert(
+    const { error } = await supabase.from('categories').upsert(
       local.categories.map(c => ({
         id: c.id,
         user_id: userId,
@@ -245,12 +287,23 @@ export async function pushToCloud(): Promise<boolean> {
         budget: c.budget,
         wallet_id: c.walletId ?? null,
       })),
+      { onConflict: 'user_id,id' },
     );
     if (error) throw error;
   }
+  {
+    const keep = new Set(local.categories.map(c => c.id));
+    const { data, error } = await supabase.from('categories').select('id').eq('user_id', userId);
+    if (error) throw error;
+    const remove = (data ?? []).map(r => r.id).filter(id => !keep.has(id));
+    if (remove.length) {
+      const { error: delErr } = await supabase.from('categories').delete().eq('user_id', userId).in('id', remove);
+      if (delErr) throw delErr;
+    }
+  }
 
   if (local.transfers.length) {
-    const { error } = await supabase.from('category_transfers').insert(
+    const { error } = await supabase.from('category_transfers').upsert(
       local.transfers.map(t => ({
         id: t.id,
         user_id: userId,
@@ -263,12 +316,23 @@ export async function pushToCloud(): Promise<boolean> {
         expense_txn_id: t.expenseTxnId ?? null,
         income_txn_id: t.incomeTxnId ?? null,
       })),
+      { onConflict: 'user_id,id' },
     );
     if (error) throw error;
   }
+  {
+    const keep = new Set(local.transfers.map(t => t.id));
+    const { data, error } = await supabase.from('category_transfers').select('id').eq('user_id', userId);
+    if (error) throw error;
+    const remove = (data ?? []).map(r => r.id).filter(id => !keep.has(id));
+    if (remove.length) {
+      const { error: delErr } = await supabase.from('category_transfers').delete().eq('user_id', userId).in('id', remove);
+      if (delErr) throw delErr;
+    }
+  }
 
   if (local.recurring.length) {
-    const { error } = await supabase.from('recurring_rules').insert(
+    const { error } = await supabase.from('recurring_rules').upsert(
       local.recurring.map(r => ({
         id: r.id,
         user_id: userId,
@@ -281,20 +345,34 @@ export async function pushToCloud(): Promise<boolean> {
         next_due: r.nextDue,
         linked_transaction_id: r.linkedTransactionId ?? null,
       })),
+      { onConflict: 'user_id,id' },
     );
     if (error) throw error;
   }
+  {
+    const keep = new Set(local.recurring.map(r => r.id));
+    const { data, error } = await supabase.from('recurring_rules').select('id').eq('user_id', userId);
+    if (error) throw error;
+    const remove = (data ?? []).map(r => r.id).filter(id => !keep.has(id));
+    if (remove.length) {
+      const { error: delErr } = await supabase.from('recurring_rules').delete().eq('user_id', userId).in('id', remove);
+      if (delErr) throw delErr;
+    }
+  }
 
   if (local.goal) {
-    const { error } = await supabase.from('savings_goals').insert({
+    const { error } = await supabase.from('savings_goals').upsert({
       user_id: userId,
       target: local.goal.target,
       label: local.goal.label,
     });
     if (error) throw error;
+  } else {
+    const { error } = await supabase.from('savings_goals').delete().eq('user_id', userId);
+    if (error) throw error;
   }
 
-  const { error: setErr } = await supabase.from('user_settings').insert({
+  const { error: setErr } = await supabase.from('user_settings').upsert({
     user_id: userId,
     monthly_budget: local.budget,
     onboarding_done: local.onboardingDone,

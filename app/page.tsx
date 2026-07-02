@@ -21,6 +21,7 @@ import ViewModeBar from '@/components/ViewModeBar';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import LowBalanceAlert from '@/components/LowBalanceAlert';
+import RecoveryBanner from '@/components/RecoveryBanner';
 import MoreSection from '@/components/MoreSection';
 
 export default function Home() {
@@ -152,6 +153,16 @@ export default function Home() {
           streak={streak}
           onLogout={handleLogout}
           onOpenSettings={() => setShowSettings(true)}
+        />
+
+        <RecoveryBanner
+          currentCount={transactions.length}
+          onRestored={() => {
+            applyDueRecurring();
+            refresh();
+            reloadCategories();
+            reloadTransfers();
+          }}
         />
 
         {/* 1. Add entry */}
