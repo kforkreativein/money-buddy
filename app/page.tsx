@@ -9,13 +9,14 @@ import { getCategories } from '@/lib/categories';
 import { getTransfers } from '@/lib/transfers';
 import { recordDailyVisit } from '@/lib/streak';
 import { filterTransactionsForView, ViewMode } from '@/lib/view';
+import { registerServiceWorker, notificationsEnabled, showNotification } from '@/lib/notifications';
 import Onboarding from '@/components/Onboarding';
 import AuthScreen from '@/components/AuthScreen';
 import ProfileHeader from '@/components/ProfileHeader';
 import SettingsPanel from '@/components/SettingsPanel';
 import StatsBar from '@/components/StatsBar';
 import ViewModeBar from '@/components/ViewModeBar';
-import DailyWelcome from '@/components/DailyWelcome';
+import StreakPopup from '@/components/StreakPopup';
 import AffordCheckCard from '@/components/AffordCheckCard';
 import BusinessProfitCard from '@/components/BusinessProfitCard';
 import MonthlyCloseCard from '@/components/MonthlyCloseCard';
@@ -41,16 +42,22 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showStreakPopup, setShowStreakPopup] = useState(false);
   const [streak, setStreak] = useState(0);
-  const [displayName, setDisplayName] = useState('');
+  const [previousStreak, setPreviousStreak] = useState(0);
   const [budget, setBudget] = useState(0);
   const [walletFilter, setWalletFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [recurringRefresh, setRecurringRefresh] = useState(0);
 
   const refresh = useCallback(() => setTransactions(getTransactions()), []);
   const reloadCategories = useCallback(() => setCategories(getCategories()), []);
   const reloadTransfers = useCallback(() => setTransfers(getTransfers()), []);
+
+  const handleRecurringChange = useCallback(() => {
+    refresh();
+    setRecurringRefresh(n => n + 1);
+  }, [refresh]);
 
   const viewTransactions = useMemo(
     () => filterTransactionsForView(transactions, viewMode),
@@ -60,6 +67,7 @@ export default function Home() {
   const categoryFilter = viewMode === 'all' ? null : viewMode;
 
   const loadAppData = useCallback(() => {
+    registerServiceWorker();
     applyDueRecurring();
     refresh();
     reloadCategories();
@@ -67,9 +75,14 @@ export default function Home() {
     setBudget(Number(localStorage.getItem(userStorageKey('money_buddy_budget')) || 0));
     const visit = recordDailyVisit();
     setStreak(visit.streak);
-    setShowWelcome(visit.isFirstVisitToday);
-    const session = getSession();
-    if (session) setDisplayName(session.displayName);
+    setPreviousStreak(visit.previousStreak);
+    setShowStreakPopup(visit.isFirstVisitToday);
+    if (visit.isFirstVisitToday && notificationsEnabled()) {
+      showNotification(
+        'Money Buddy',
+        visit.streak > 1 ? `Day ${visit.streak} streak — welcome back!` : 'Welcome! Start your streak today.',
+      );
+    }
     if (!localStorage.getItem(userStorageKey('onboarding_done'))) {
       setShowOnboarding(true);
     } else if (new URLSearchParams(window.location.search).get('action') === 'add') {
@@ -108,7 +121,7 @@ export default function Home() {
     setShowOnboarding(false);
     setShowForm(false);
     setShowSettings(false);
-    setShowWelcome(false);
+    setShowStreakPopup(false);
     setStreak(0);
     setWalletFilter(null);
     setViewMode('all');
@@ -139,9 +152,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-dvh" style={{ background: '#FFF7ED' }}>
+    <main className="min-h-dvh overflow-x-hidden" style={{ background: '#FFF7ED' }}>
       <div
-        className="max-w-md mx-auto px-4 pt-6 flex flex-col gap-5"
+        className="max-w-md mx-auto px-4 pt-[max(1.5rem,env(safe-area-inset-top))] flex flex-col gap-4 sm:gap-5"
         style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 2rem))' }}
       >
         <ProfileHeader
@@ -150,21 +163,9 @@ export default function Home() {
           onOpenSettings={() => setShowSettings(true)}
         />
 
-        {showWelcome && (
-          <DailyWelcome
-            name={displayName}
-            streak={streak}
-            onDismiss={() => setShowWelcome(false)}
-          />
-        )}
-
         <LowBalanceAlert transactions={transactions} />
 
-        <ViewModeBar
-          categories={categories}
-          viewMode={viewMode}
-          onSelect={setViewMode}
-        />
+        <ViewModeBar categories={categories} viewMode={viewMode} onSelect={setViewMode} />
 
         <StatsBar
           transactions={viewTransactions}
@@ -174,32 +175,31 @@ export default function Home() {
           transfers={transfers}
         />
 
-        <BusinessProfitCard
-          categories={categories}
-          transactions={transactions}
-          transfers={transfers}
-        />
+        <BusinessProfitCard categories={categories} transactions={transactions} transfers={transfers} />
 
-        <AffordCheckCard
-          categories={categories}
-          transactions={transactions}
-          transfers={transfers}
-        />
+        <AffordCheckCard categories={categories} transactions={transactions} transfers={transfers} />
 
-        <MonthlyCloseCard
-          transactions={transactions}
-          transfers={transfers}
-          categories={categories}
-        />
+        <MonthlyCloseCard transactions={transactions} transfers={transfers} categories={categories} />
 
         {showForm ? (
-          <div className="animate-pop-in">
-            <TransactionForm onSave={handleSave} onCancel={() => setShowForm(false)} />
+          <div
+            className="animate-pop-in fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            style={{ background: 'rgba(28,25,23,0.55)' }}
+            onClick={() => setShowForm(false)}>
+            <div
+              className="w-full max-w-sm max-h-[92dvh] overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
+              onClick={e => e.stopPropagation()}>
+              <TransactionForm
+                onSave={handleSave}
+                onCancel={() => setShowForm(false)}
+                onRecurringChange={handleRecurringChange}
+              />
+            </div>
           </div>
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center">
+            className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center min-h-[52px]">
             ➕ Add Income / Expense / Invest
           </button>
         )}
@@ -210,15 +210,21 @@ export default function Home() {
           onDelete={handleDelete}
           walletFilter={walletFilter}
           categoryFilter={categoryFilter}
+          onRecurringChange={handleRecurringChange}
         />
 
-        <WalletBar transactions={transactions} selectedWallet={walletFilter} onSelectWallet={id => setWalletFilter(prev => prev === id ? null : id)} />
+        <WalletBar
+          transactions={transactions}
+          selectedWallet={walletFilter}
+          onSelectWallet={id => setWalletFilter(prev => prev === id ? null : id)}
+        />
 
         <BottomTools
           transactions={viewTransactions}
           budget={budget}
           onSetBudget={setBudget}
           onRefresh={refresh}
+          recurringRefresh={recurringRefresh}
         />
 
         <InsightsChart transactions={viewTransactions} />
@@ -234,12 +240,17 @@ export default function Home() {
           categories={categories}
           onTransfer={() => { reloadTransfers(); reloadCategories(); refresh(); }}
         />
-        <TransferHistory
-          categories={categories}
-          onUndo={() => { reloadTransfers(); refresh(); }}
-        />
+        <TransferHistory categories={categories} onUndo={() => { reloadTransfers(); refresh(); }} />
         <YearEndReport transactions={transactions} transfers={transfers} categories={categories} />
       </div>
+
+      {showStreakPopup && (
+        <StreakPopup
+          previousStreak={previousStreak}
+          streak={streak}
+          onDone={() => setShowStreakPopup(false)}
+        />
+      )}
 
       {showOnboarding && (
         <Onboarding onDone={() => {

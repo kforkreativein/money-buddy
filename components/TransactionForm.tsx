@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react';
 import { Transaction, TxType, Frequency, Wallet, Category } from '@/lib/types';
 import { getWallets, addWallet, legacyWalletId, walletToPaymentMode } from '@/lib/wallets';
 import { getCategories } from '@/lib/categories';
-import { addRule } from '@/lib/recurring';
+import { findRuleForTransaction, syncRuleForTransaction } from '@/lib/recurring';
 import EmojiPicker from './EmojiPicker';
 
 interface Props {
   initial?: Transaction;
   onSave: (txn: Transaction) => void;
   onCancel?: () => void;
+  onRecurringChange?: () => void;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -20,7 +21,7 @@ const FREQ_LABELS: Record<Frequency, string> = {
   monthly: '🗓️ Monthly',
 };
 
-export default function TransactionForm({ initial, onSave, onCancel }: Props) {
+export default function TransactionForm({ initial, onSave, onCancel, onRecurringChange }: Props) {
   const [type, setType] = useState<TxType>(initial?.type ?? 'expense');
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
@@ -42,10 +43,28 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
     const ws = getWallets();
     setWallets(ws);
     setCategories(getCategories());
-    const defaultId = initial?.walletId ?? legacyWalletId(initial?.paymentMode ?? 'gpay', initial?.bank);
-    setWalletId(defaultId);
-    setCategoryId(initial?.categoryId ?? '');
-  }, [initial?.walletId, initial?.paymentMode, initial?.bank, initial?.categoryId]);
+    if (initial) {
+      setType(initial.type);
+      setAmount(String(initial.amount));
+      setDescription(initial.description ?? '');
+      setDate(initial.date);
+      const defaultId = initial.walletId ?? legacyWalletId(initial.paymentMode, initial.bank);
+      setWalletId(defaultId);
+      setCategoryId(initial.categoryId ?? '');
+      const rule = findRuleForTransaction(initial);
+      setRecurring(!!rule);
+      setFrequency(rule?.frequency ?? 'monthly');
+    } else {
+      setType('expense');
+      setAmount('');
+      setDescription('');
+      setDate(today());
+      setWalletId(ws[0]?.id ?? '');
+      setCategoryId('');
+      setRecurring(false);
+      setFrequency('monthly');
+    }
+  }, [initial]);
 
   useEffect(() => {
     if (type === 'investment') setCategoryId('');
@@ -55,8 +74,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
     const name = newWalletName.trim();
     if (!name) return;
     const w = addWallet({ name, emoji: newWalletEmoji });
-    const ws = getWallets();
-    setWallets(ws);
+    setWallets(getWallets());
     setWalletId(w.id);
     setNewWalletName('');
     setNewWalletEmoji('💳');
@@ -79,31 +97,14 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
       paymentMode: pm.paymentMode,
       bank: pm.bank,
       categoryId: (type === 'income' || type === 'expense') && categoryId ? categoryId : undefined,
+      recurringRuleId: initial?.recurringRuleId,
       date,
       createdAt: initial?.createdAt ?? Date.now(),
     };
-    onSave(txn);
 
-    // Save recurring rule — nextDue is the first occurrence AFTER this one
-    if (recurring && !initial) {
-      const nextDue = (() => {
-        const d = new Date(date);
-        if (frequency === 'daily') d.setDate(d.getDate() + 1);
-        else if (frequency === 'weekly') d.setDate(d.getDate() + 7);
-        else d.setMonth(d.getMonth() + 1);
-        return d.toISOString().slice(0, 10);
-      })();
-      addRule({
-        id: crypto.randomUUID(),
-        type,
-        amount: amt,
-        description: description.trim(),
-        walletId,
-        categoryId: (type === 'income' || type === 'expense') && categoryId ? categoryId : undefined,
-        frequency,
-        nextDue,
-      });
-    }
+    onSave(txn);
+    syncRuleForTransaction(txn, recurring, frequency);
+    onRecurringChange?.();
   }
 
   const isEdit = !!initial;
@@ -116,12 +117,11 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         : 'Add Expense ❤️';
 
   return (
-    <form onSubmit={handleSubmit} className="clay p-5 flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="clay p-5 flex flex-col gap-4 max-h-[85dvh] overflow-y-auto overscroll-contain">
       <h2 className="text-lg font-black text-stone-700 text-center">
-        {isEdit ? '✏️ Edit Entry' : '➕ New Entry'}
+        {isEdit ? `✏️ Edit Entry${recurring ? ' 🔄' : ''}` : '➕ New Entry'}
       </h2>
 
-      {/* Type toggle */}
       <div className="grid grid-cols-3 gap-2">
         {([
           { t: 'income' as TxType, label: '💚 Income', active: 'clay-green text-emerald-900' },
@@ -138,7 +138,6 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         ))}
       </div>
 
-      {/* Amount */}
       <div className="relative">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-stone-400">₹</span>
         <input
@@ -151,12 +150,11 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         />
       </div>
 
-      {/* Quick amount chips */}
       <div className="flex gap-2 flex-wrap">
         {[100, 500, 1000, 2000].map(v => (
           <button key={v} type="button"
             onClick={() => setAmount(String(v))}
-            className={`clay-btn px-3 py-1.5 rounded-[10px] font-bold text-sm transition-all ${
+            className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm transition-all ${
               amount === String(v) ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
             }`}>
             ₹{v}
@@ -164,7 +162,6 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         ))}
       </div>
 
-      {/* Description */}
       <textarea
         value={description} onChange={e => setDescription(e.target.value)}
         placeholder="What was this for? (optional) 📝"
@@ -172,14 +169,13 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none resize-none placeholder:text-stone-400"
       />
 
-      {/* Wallet picker */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-black text-stone-400 uppercase tracking-wider">Wallet</span>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {wallets.map(w => (
             <button key={w.id} type="button"
               onClick={() => setWalletId(w.id)}
-              className={`clay-btn flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[12px] font-bold text-sm transition-all ${
+              className={`clay-btn flex-shrink-0 snap-start flex items-center gap-1.5 px-3 py-2.5 rounded-[12px] font-bold text-sm transition-all min-h-[44px] ${
                 walletId === w.id ? 'clay-blue text-blue-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
               }`}>
               <span>{w.emoji}</span>
@@ -188,7 +184,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
           ))}
           <button type="button"
             onClick={() => setShowAddWallet(v => !v)}
-            className="clay-btn flex-shrink-0 px-3 py-2 rounded-[12px] font-bold text-sm text-violet-600 bg-white/70 border border-violet-200 whitespace-nowrap">
+            className="clay-btn flex-shrink-0 snap-start px-3 py-2.5 rounded-[12px] font-bold text-sm text-violet-600 bg-white/70 border border-violet-200 whitespace-nowrap min-h-[44px]">
             + New
           </button>
         </div>
@@ -204,7 +200,7 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
               className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
             />
             <button type="button" onClick={handleAddWallet} disabled={!newWalletName.trim()}
-              className="clay-btn bg-violet-500 text-white font-black text-sm px-3 py-2 rounded-[10px] disabled:opacity-40">
+              className="clay-btn bg-violet-500 text-white font-black text-sm px-3 py-2 rounded-[10px] disabled:opacity-40 min-h-[44px]">
               Add
             </button>
           </div>
@@ -215,20 +211,13 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         <div className="flex flex-col gap-2">
           <span className="text-xs font-black text-stone-400 uppercase tracking-wider">Category (optional)</span>
           <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setCategoryId('')}
-              className={`clay-btn px-3 py-2 rounded-[12px] font-bold text-sm transition-all ${
+            <button type="button" onClick={() => setCategoryId('')}
+              className={`clay-btn px-3 py-2.5 rounded-[12px] font-bold text-sm min-h-[44px] transition-all ${
                 !categoryId ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
-              }`}>
-              None
-            </button>
+              }`}>None</button>
             {categories.map(c => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setCategoryId(c.id)}
-                className={`clay-btn px-3 py-2 rounded-[12px] font-bold text-sm transition-all ${
+              <button key={c.id} type="button" onClick={() => setCategoryId(c.id)}
+                className={`clay-btn px-3 py-2.5 rounded-[12px] font-bold text-sm min-h-[44px] transition-all ${
                   categoryId === c.id ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                 }`}>
                 {c.emoji} {c.name}
@@ -238,52 +227,50 @@ export default function TransactionForm({ initial, onSave, onCancel }: Props) {
         </div>
       )}
 
-      {/* Date */}
       <input type="date" value={date} onChange={e => setDate(e.target.value)}
-        className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none"
+        className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none min-h-[44px]"
       />
 
-      {/* Recurring toggle (new entries only) */}
-      {!isEdit && (
-        <div className="flex flex-col gap-2">
-          <button type="button"
-            onClick={() => setRecurring(v => !v)}
-            className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm transition-all ${
-              recurring ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
-            }`}>
-            <span>🔄 Make this recurring</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-black ${recurring ? 'bg-violet-200 text-violet-800' : 'bg-stone-200 text-stone-400'}`}>
-              {recurring ? 'ON' : 'OFF'}
-            </span>
-          </button>
-          {recurring && (
-            <div className="flex gap-2 animate-pop-in">
-              {(['daily', 'weekly', 'monthly'] as Frequency[]).map(f => (
-                <button key={f} type="button"
-                  onClick={() => setFrequency(f)}
-                  className={`clay-btn flex-1 py-2 rounded-[12px] font-bold text-xs transition-all ${
-                    frequency === f ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-400 border border-stone-200 shadow-none'
-                  }`}>
-                  {FREQ_LABELS[f]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="flex flex-col gap-2">
+        <button type="button"
+          onClick={() => setRecurring(v => !v)}
+          className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm min-h-[44px] transition-all ${
+            recurring ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+          }`}>
+          <span>🔄 {isEdit ? 'Recurring rule' : 'Make this recurring'}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-black ${recurring ? 'bg-violet-200 text-violet-800' : 'bg-stone-200 text-stone-400'}`}>
+            {recurring ? 'ON' : 'OFF'}
+          </span>
+        </button>
+        {recurring && (
+          <div className="flex gap-2 animate-pop-in">
+            {(['daily', 'weekly', 'monthly'] as Frequency[]).map(f => (
+              <button key={f} type="button"
+                onClick={() => setFrequency(f)}
+                className={`clay-btn flex-1 py-2.5 rounded-[12px] font-bold text-xs min-h-[44px] transition-all ${
+                  frequency === f ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-400 border border-stone-200 shadow-none'
+                }`}>
+                {FREQ_LABELS[f]}
+              </button>
+            ))}
+          </div>
+        )}
+        {recurring && isEdit && (
+          <p className="text-[11px] font-semibold text-violet-700 px-1">Changes update the recurring rule for future entries.</p>
+        )}
+      </div>
 
       {error && <p className="text-red-500 font-bold text-sm text-center">{error}</p>}
 
-      {/* Actions */}
-      <div className="flex gap-2 mt-1">
+      <div className="flex gap-2 mt-1 sticky bottom-0 bg-gradient-to-t from-[#f0ede8] to-transparent pt-2 pb-1">
         {onCancel && (
           <button type="button" onClick={onCancel}
-            className="clay clay-btn flex-1 py-3 font-bold text-stone-500 text-base">
+            className="clay clay-btn flex-1 py-3.5 font-bold text-stone-500 text-base min-h-[48px]">
             Cancel
           </button>
         )}
         <button type="submit"
-          className={`clay-btn flex-1 py-3 rounded-[16px] font-black text-white text-base shadow-lg ${
+          className={`clay-btn flex-1 py-3.5 rounded-[16px] font-black text-white text-base shadow-lg min-h-[48px] ${
             type === 'income' ? 'bg-emerald-400' : type === 'investment' ? 'bg-blue-400' : 'bg-rose-400'
           }`}>
           {submitLabel}

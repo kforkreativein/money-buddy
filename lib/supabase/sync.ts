@@ -102,6 +102,7 @@ export async function pullFromCloud(): Promise<boolean> {
     bank: r.bank ?? undefined,
     walletId: r.wallet_id ?? undefined,
     categoryId: r.category_id ?? undefined,
+    recurringRuleId: r.recurring_rule_id ?? undefined,
     date: r.date,
     createdAt: r.created_at,
   }));
@@ -143,6 +144,7 @@ export async function pullFromCloud(): Promise<boolean> {
     categoryId: r.category_id ?? undefined,
     frequency: r.frequency,
     nextDue: r.next_due,
+    linkedTransactionId: r.linked_transaction_id ?? undefined,
   }));
 
   const goal = goalRes.data
@@ -168,6 +170,14 @@ export async function pullFromCloud(): Promise<boolean> {
         lastVisitDate: setRes.data?.last_visit_date ?? '',
       }),
     );
+  }
+  if (setRes.data?.wallet_order) {
+    try {
+      localStorage.setItem(userKey('money_buddy_wallet_order', userId), setRes.data.wallet_order);
+    } catch { /* ignore */ }
+  }
+  if (setRes.data?.notifications_enabled) {
+    localStorage.setItem(userKey('money_buddy_notifications', userId), '1');
   }
 
   return true;
@@ -203,6 +213,7 @@ export async function pushToCloud(): Promise<boolean> {
         bank: t.bank ?? null,
         wallet_id: t.walletId ?? null,
         category_id: t.categoryId ?? null,
+        recurring_rule_id: t.recurringRuleId ?? null,
         date: t.date,
         created_at: t.createdAt,
       })),
@@ -268,6 +279,7 @@ export async function pushToCloud(): Promise<boolean> {
         category_id: r.categoryId ?? null,
         frequency: r.frequency,
         next_due: r.nextDue,
+        linked_transaction_id: r.linkedTransactionId ?? null,
       })),
     );
     if (error) throw error;
@@ -298,6 +310,8 @@ export async function pushToCloud(): Promise<boolean> {
         return raw ? (JSON.parse(raw).lastVisitDate ?? null) : null;
       } catch { return null; }
     })(),
+    wallet_order: localStorage.getItem(userKey('money_buddy_wallet_order', userId)) ?? null,
+    notifications_enabled: localStorage.getItem(userKey('money_buddy_notifications', userId)) === '1',
   });
   if (setErr) throw setErr;
 

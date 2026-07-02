@@ -49,6 +49,8 @@ export interface RecurringRule {
   categoryId?: string;
   frequency: Frequency;
   nextDue: string;
+  /** Transaction that created this rule (for edit screen) */
+  linkedTransactionId?: string;
 }
 
 export interface Transaction {
@@ -60,6 +62,7 @@ export interface Transaction {
   bank?: Bank;
   walletId?: string;
   categoryId?: string;
+  recurringRuleId?: string;
   date: string;
   createdAt: number;
 }

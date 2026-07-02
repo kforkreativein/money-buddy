@@ -5,6 +5,13 @@ body {
   background-color: #FFF7ED;
   color: #1c1917;
   min-height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Mobile PWA: minimum tap targets */
+.clay-btn {
+  min-height: 44px;
 }
 
 /* ── Claymorphism base ── */

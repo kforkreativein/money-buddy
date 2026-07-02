@@ -11,7 +11,7 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-export default function RecurringManager({ onRefresh }: { onRefresh: () => void }) {
+export default function RecurringManager({ onRefresh, refreshKey = 0 }: { onRefresh: () => void; refreshKey?: number }) {
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [open, setOpen] = useState(false);
@@ -21,7 +21,7 @@ export default function RecurringManager({ onRefresh }: { onRefresh: () => void 
     setWallets(getWallets());
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [refreshKey]);
 
   function handleDelete(id: string) {
     deleteRule(id);

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Transaction, Wallet } from '@/lib/types';
 import { getWallets, legacyWalletId } from '@/lib/wallets';
 import { getCategories, getCategoryById } from '@/lib/categories';
+import { findRuleForTransaction } from '@/lib/recurring';
 import TransactionForm from './TransactionForm';
 
 function walletLabel(t: Transaction, wallets: Wallet[]): { emoji: string; name: string } {
@@ -37,12 +38,14 @@ export default function TransactionList({
   onDelete,
   walletFilter,
   categoryFilter,
+  onRecurringChange,
 }: {
   transactions: Transaction[];
   onUpdate: (txn: Transaction) => void;
   onDelete: (id: string) => void;
   walletFilter?: string | null;
   categoryFilter?: string | null;
+  onRecurringChange?: () => void;
 }) {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
@@ -212,6 +215,11 @@ export default function TransactionList({
                             </span>
                           );
                         })()}
+                        {findRuleForTransaction(txn) && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                            🔄 Recurring
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -252,14 +260,15 @@ export default function TransactionList({
 
       {/* Edit modal */}
       {editing && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center p-4"
-          style={{ background: 'rgba(28,25,23,0.45)', backdropFilter: 'blur(3px)', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(4px)', paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}
           onClick={e => { if (e.target === e.currentTarget) setEditing(null); }}>
-          <div className="w-full max-w-sm animate-slide-up">
+          <div className="w-full max-w-sm animate-slide-up max-h-[92dvh] overflow-hidden rounded-t-[24px] sm:rounded-[24px]">
             <TransactionForm
               initial={editing}
               onSave={txn => { onUpdate(txn); setEditing(null); }}
               onCancel={() => setEditing(null)}
+              onRecurringChange={onRecurringChange}
             />
           </div>
         </div>

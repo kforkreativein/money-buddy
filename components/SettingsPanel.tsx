@@ -6,6 +6,12 @@ import { getWallets } from '@/lib/wallets';
 import { clearCategoryFromTransactions } from '@/lib/storage';
 import { clearTransfersForCategory } from '@/lib/transfers';
 import EmojiPicker from './EmojiPicker';
+import {
+  canUseNotifications,
+  enableNotifications,
+  notificationsEnabled,
+  setNotificationsEnabled,
+} from '@/lib/notifications';
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -22,6 +28,8 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🏷️');
   const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
+  const [notifOn, setNotifOn] = useState(false);
+  const [notifMsg, setNotifMsg] = useState('');
 
   function reload() {
     const cats = getCategories();
@@ -32,7 +40,26 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
     ));
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    setNotifOn(notificationsEnabled());
+  }, []);
+
+  async function toggleNotifications() {
+    if (!canUseNotifications()) {
+      setNotifMsg('Notifications not supported in this browser.');
+      return;
+    }
+    if (notifOn) {
+      setNotificationsEnabled(false);
+      setNotifOn(false);
+      setNotifMsg('Daily reminders turned off.');
+      return;
+    }
+    const ok = await enableNotifications();
+    setNotifOn(ok);
+    setNotifMsg(ok ? 'You\'ll get a welcome ping each new day.' : 'Permission denied — enable in browser settings.');
+  }
 
   function handleAdd() {
     const name = newName.trim();
@@ -85,6 +112,23 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
         </div>
 
         <div className="flex flex-col gap-3">
+          <div className="clay p-3 flex flex-col gap-2">
+            <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Notifications</p>
+            <p className="text-xs font-semibold text-stone-500 leading-relaxed">
+              Get a short welcome notification on your first visit each day (works best from home-screen app).
+            </p>
+            <button
+              type="button"
+              onClick={toggleNotifications}
+              className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm min-h-[44px] ${
+                notifOn ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+              }`}>
+              <span>🔔 Daily reminder</span>
+              <span className="text-xs font-black">{notifOn ? 'ON' : 'OFF'}</span>
+            </button>
+            {notifMsg && <p className="text-xs font-semibold text-violet-700">{notifMsg}</p>}
+          </div>
+
           <div>
             <p className="text-xs font-black text-stone-400 uppercase tracking-wider mb-1">Categories</p>
             <p className="text-xs font-semibold text-stone-500 leading-relaxed">

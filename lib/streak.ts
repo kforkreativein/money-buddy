@@ -39,17 +39,18 @@ function saveStreak(data: StreakData) {
 }
 
 /** Call once when app loads. Increments streak on first visit each day. */
-export function recordDailyVisit(): { streak: number; isFirstVisitToday: boolean } {
+export function recordDailyVisit(): { streak: number; previousStreak: number; isFirstVisitToday: boolean } {
   const today = todayStr();
   const current = getStreakData();
 
   if (current.lastVisitDate === today) {
-    return { streak: current.streak, isFirstVisitToday: false };
+    return { streak: current.streak, previousStreak: current.streak, isFirstVisitToday: false };
   }
 
+  const previousStreak = current.lastVisitDate === yesterdayStr() ? current.streak : 0;
   const streak = current.lastVisitDate === yesterdayStr() ? current.streak + 1 : 1;
   saveStreak({ streak, lastVisitDate: today });
-  return { streak, isFirstVisitToday: true };
+  return { streak, previousStreak, isFirstVisitToday: true };
 }
 
 export function getStreak(): number {

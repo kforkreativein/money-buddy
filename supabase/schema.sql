@@ -27,6 +27,7 @@ create table if not exists public.transactions (
   category_id text,
   date date not null,
   created_at bigint not null,
+  recurring_rule_id text,
   primary key (user_id, id)
 );
 
@@ -90,6 +91,7 @@ create table if not exists public.recurring_rules (
   category_id text,
   frequency text not null,
   next_due date not null,
+  linked_transaction_id text,
   primary key (user_id, id)
 );
 
@@ -112,7 +114,9 @@ create table if not exists public.user_settings (
   monthly_budget integer not null default 0,
   onboarding_done boolean not null default false,
   streak_count integer not null default 0,
-  last_visit_date text
+  last_visit_date text,
+  wallet_order text,
+  notifications_enabled boolean not null default false
 );
 
 alter table public.user_settings enable row level security;

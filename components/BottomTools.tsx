@@ -29,9 +29,10 @@ interface Props {
   budget: number;
   onSetBudget: (val: number) => void;
   onRefresh: () => void;
+  recurringRefresh?: number;
 }
 
-export default function BottomTools({ transactions, budget, onSetBudget, onRefresh }: Props) {
+export default function BottomTools({ transactions, budget, onSetBudget, onRefresh, recurringRefresh = 0 }: Props) {
   const [showBudget, setShowBudget] = useState(false);
   const [budgetDraft, setBudgetDraft] = useState('');
 
@@ -48,7 +49,7 @@ export default function BottomTools({ transactions, budget, onSetBudget, onRefre
   return (
     <div className="flex flex-col gap-3">
       {/* Recurring rules */}
-      <RecurringManager onRefresh={onRefresh} />
+      <RecurringManager onRefresh={onRefresh} refreshKey={recurringRefresh} />
 
       {/* Export CSV + Set Budget */}
       <div className="flex gap-2">
