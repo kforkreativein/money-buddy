@@ -197,7 +197,7 @@ export default function TransactionList({
                   const iconClass = isTransfer ? 'clay-purple' : txn.type === 'income' ? 'clay-green' : txn.type === 'investment' ? 'clay-blue' : 'clay-red';
                   const icon = isTransfer ? '🔁' : txn.type === 'income' ? '💰' : txn.type === 'investment' ? '📈' : '💸';
                   const amountClass = isTransfer ? 'text-violet-700' : txn.type === 'income' ? 'text-emerald-600' : txn.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
-                  const amountPrefix = txn.type === 'income' ? '+' : '-';
+                  const amountPrefix = txn.type === 'income' ? '+' : txn.type === 'investment' ? '↑' : '-';
 
                   return (
                   <div key={txn.id}

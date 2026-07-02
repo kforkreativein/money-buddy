@@ -8,6 +8,25 @@ function currentMonthLabel() {
   return new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 }
 
+function EyeBtn({ show, onClick }: { show: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className="clay-btn opacity-60 hover:opacity-100 transition-opacity leading-none"
+      aria-label={show ? 'Hide amount' : 'Show amount'}>
+      {show ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 interface Props {
   transactions: Transaction[];
   budget: number;
@@ -62,13 +81,12 @@ export default function StatsBar({ transactions, budget, categories, categoryFil
         {categoryFilter === '__none' && <span className="text-stone-500 normal-case"> · Uncategorized</span>}
       </p>
 
+      {/* Row 1: Income + Expense */}
       <div className="grid grid-cols-2 gap-3">
         <div className="clay-green clay p-4 flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Income 💚</span>
-            <button onClick={() => setShowIncome(v => !v)} className="text-lg leading-none opacity-70 hover:opacity-100 transition-opacity clay-btn">
-              {showIncome ? '👁' : '🙈'}
-            </button>
+            <EyeBtn show={showIncome} onClick={() => setShowIncome(v => !v)} />
           </div>
           <span className="text-xl font-black text-emerald-900 tracking-tight">
             {showIncome ? fmt(displayIncome) : '₹ ·····'}
@@ -80,9 +98,7 @@ export default function StatsBar({ transactions, budget, categories, categoryFil
             <span className="text-xs font-bold text-red-900 uppercase tracking-wide">
               Expense ❤️{!categoryFilter && overBudget ? ' 🚨' : categoryOver ? ' 🚨' : ''}
             </span>
-            <button onClick={() => setShowExpense(v => !v)} className="text-lg leading-none opacity-70 hover:opacity-100 transition-opacity clay-btn">
-              {showExpense ? '👁' : '🙈'}
-            </button>
+            <EyeBtn show={showExpense} onClick={() => setShowExpense(v => !v)} />
           </div>
           <span className="text-xl font-black text-red-900 tracking-tight">
             {showExpense ? fmt(displayExpense) : '₹ ·····'}
@@ -90,16 +106,7 @@ export default function StatsBar({ transactions, budget, categories, categoryFil
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowInvestment(v => !v)}
-        className="clay clay-blue clay-btn flex items-center justify-between px-4 py-2">
-        <span className="text-xs font-black uppercase tracking-wider text-blue-900">📈 Investment</span>
-        <span className="text-sm font-black text-blue-900">
-          {showInvestment ? fmt(investment) : '₹ ·····'}
-        </span>
-      </button>
-
+      {/* Category budget bar */}
       {activeCategory && categoryBudget > 0 && catTotals && (
         <div className="px-1">
           <div className="h-1.5 rounded-full bg-violet-200/60 overflow-hidden">
@@ -113,6 +120,7 @@ export default function StatsBar({ transactions, budget, categories, categoryFil
         </div>
       )}
 
+      {/* Total expense budget bar */}
       {!categoryFilter && budget > 0 && (
         <div className="px-1">
           <div className="h-1.5 rounded-full bg-red-200/60 overflow-hidden">
@@ -124,17 +132,30 @@ export default function StatsBar({ transactions, budget, categories, categoryFil
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setShowNet(v => !v)}
-        className="clay clay-amber clay-btn flex items-center justify-between px-4 py-2.5">
-        <span className="text-xs font-black uppercase tracking-wider text-amber-900">
-          🟠 {categoryFilter ? 'Category Net' : 'Net Income'} <span className="normal-case font-semibold opacity-70">{categoryFilter ? '(in − out ± transfers)' : '(after expenses)'}</span>
-        </span>
-        <span className={`text-base font-black ${displayNet >= 0 ? 'text-amber-800' : 'text-red-700'}`}>
-          {showNet ? `${displayNet >= 0 ? '+' : ''}${fmt(displayNet)}` : '₹ ·····'}
-        </span>
-      </button>
+      {/* Row 2: Investment + Net Income side by side */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="clay clay-blue p-4 flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">Invest 💼</span>
+            <EyeBtn show={showInvestment} onClick={() => setShowInvestment(v => !v)} />
+          </div>
+          <span className="text-xl font-black text-blue-900 tracking-tight">
+            {showInvestment ? fmt(investment) : '₹ ·····'}
+          </span>
+        </div>
+
+        <div className="clay clay-amber p-4 flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
+              {categoryFilter ? 'Cat. Net' : 'Net Income'} 🟠
+            </span>
+            <EyeBtn show={showNet} onClick={() => setShowNet(v => !v)} />
+          </div>
+          <span className={`text-xl font-black tracking-tight ${displayNet >= 0 ? 'text-amber-800' : 'text-red-700'}`}>
+            {showNet ? `${displayNet >= 0 ? '+' : ''}${fmt(displayNet)}` : '₹ ·····'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

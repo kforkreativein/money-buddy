@@ -172,14 +172,7 @@ export default function Home() {
           ➕ Add Income / Expense / Invest
         </button>
 
-        {/* 2. Search */}
-        <EntrySearch value={search} onChange={v => setSearch(v)} />
-
-        {categories.length > 0 && (
-          <ViewModeBar categories={categories} viewMode={viewMode} onSelect={setViewMode} />
-        )}
-
-        {/* 3. Monthly stats */}
+        {/* 2. Monthly stats */}
         <StatsBar
           transactions={viewTransactions}
           budget={budget}
@@ -187,6 +180,13 @@ export default function Home() {
           categoryFilter={categoryFilter}
           transfers={transfers}
         />
+
+        {/* 3. Search + category filter */}
+        <EntrySearch value={search} onChange={v => setSearch(v)} />
+
+        {categories.length > 0 && (
+          <ViewModeBar categories={categories} viewMode={viewMode} onSelect={setViewMode} />
+        )}
 
         {/* 4. Transaction list */}
         <TransactionList
