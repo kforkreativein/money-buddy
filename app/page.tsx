@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Transaction, Category, CategoryTransfer } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
 import { applyDueRecurring } from '@/lib/recurring';
-import { userStorageKey, restoreAuth, getSession } from '@/lib/auth';
+import { userStorageKey, restoreAuth } from '@/lib/auth';
 import { scheduleCloudSync } from '@/lib/supabase/sync';
 import { getCategories } from '@/lib/categories';
 import { getTransfers } from '@/lib/transfers';
@@ -15,24 +15,13 @@ import AuthScreen from '@/components/AuthScreen';
 import ProfileHeader from '@/components/ProfileHeader';
 import SettingsPanel from '@/components/SettingsPanel';
 import StatsBar from '@/components/StatsBar';
-import ViewModeBar from '@/components/ViewModeBar';
 import StreakPopup from '@/components/StreakPopup';
-import AffordCheckCard from '@/components/AffordCheckCard';
-import BusinessProfitCard from '@/components/BusinessProfitCard';
-import MonthlyCloseCard from '@/components/MonthlyCloseCard';
+import EntrySearch from '@/components/EntrySearch';
+import ViewModeBar from '@/components/ViewModeBar';
 import TransactionForm from '@/components/TransactionForm';
-import WalletBar from '@/components/WalletBar';
 import TransactionList from '@/components/TransactionList';
-import BottomTools from '@/components/BottomTools';
-import InsightsChart from '@/components/InsightsChart';
-import SavingsGoalCard from '@/components/SavingsGoalCard';
-import DueReminders from '@/components/DueReminders';
-import WeeklySummary from '@/components/WeeklySummary';
-import CategoryBreakdown from '@/components/CategoryBreakdown';
-import CategoryTransferPanel from '@/components/CategoryTransferPanel';
-import TransferHistory from '@/components/TransferHistory';
-import YearEndReport from '@/components/YearEndReport';
 import LowBalanceAlert from '@/components/LowBalanceAlert';
+import MoreSection from '@/components/MoreSection';
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -49,6 +38,7 @@ export default function Home() {
   const [walletFilter, setWalletFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [recurringRefresh, setRecurringRefresh] = useState(0);
+  const [search, setSearch] = useState('');
 
   const refresh = useCallback(() => setTransactions(getTransactions()), []);
   const reloadCategories = useCallback(() => setCategories(getCategories()), []);
@@ -125,6 +115,7 @@ export default function Home() {
     setStreak(0);
     setWalletFilter(null);
     setViewMode('all');
+    setSearch('');
   }, []);
 
   const handleSave = useCallback((txn: Transaction) => {
@@ -154,8 +145,8 @@ export default function Home() {
   return (
     <main className="min-h-dvh overflow-x-hidden" style={{ background: '#FFF7ED' }}>
       <div
-        className="max-w-md mx-auto px-4 pt-[max(1.5rem,env(safe-area-inset-top))] flex flex-col gap-4 sm:gap-5"
-        style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 2rem))' }}
+        className="max-w-md mx-auto px-4 pt-[max(1rem,env(safe-area-inset-top))] flex flex-col gap-3"
+        style={{ paddingBottom: 'max(5rem, calc(env(safe-area-inset-bottom) + 1.5rem))' }}
       >
         <ProfileHeader
           streak={streak}
@@ -163,10 +154,21 @@ export default function Home() {
           onOpenSettings={() => setShowSettings(true)}
         />
 
-        <LowBalanceAlert transactions={transactions} />
+        {/* 1. Add entry */}
+        <button
+          onClick={() => setShowForm(true)}
+          className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center min-h-[52px]">
+          ➕ Add Income / Expense / Invest
+        </button>
 
-        <ViewModeBar categories={categories} viewMode={viewMode} onSelect={setViewMode} />
+        {/* 2. Search */}
+        <EntrySearch value={search} onChange={v => setSearch(v)} />
 
+        {categories.length > 0 && (
+          <ViewModeBar categories={categories} viewMode={viewMode} onSelect={setViewMode} />
+        )}
+
+        {/* 3. Monthly stats */}
         <StatsBar
           transactions={viewTransactions}
           budget={budget}
@@ -175,35 +177,7 @@ export default function Home() {
           transfers={transfers}
         />
 
-        <BusinessProfitCard categories={categories} transactions={transactions} transfers={transfers} />
-
-        <AffordCheckCard categories={categories} transactions={transactions} transfers={transfers} />
-
-        <MonthlyCloseCard transactions={transactions} transfers={transfers} categories={categories} />
-
-        {showForm ? (
-          <div
-            className="animate-pop-in fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(28,25,23,0.55)' }}
-            onClick={() => setShowForm(false)}>
-            <div
-              className="w-full max-w-sm max-h-[92dvh] overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
-              onClick={e => e.stopPropagation()}>
-              <TransactionForm
-                onSave={handleSave}
-                onCancel={() => setShowForm(false)}
-                onRecurringChange={handleRecurringChange}
-              />
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowForm(true)}
-            className="clay-btn clay-purple clay w-full py-4 text-lg font-black text-violet-900 text-center min-h-[52px]">
-            ➕ Add Income / Expense / Invest
-          </button>
-        )}
-
+        {/* 4. Transaction list */}
         <TransactionList
           transactions={viewTransactions}
           onUpdate={handleUpdate}
@@ -211,38 +185,49 @@ export default function Home() {
           walletFilter={walletFilter}
           categoryFilter={categoryFilter}
           onRecurringChange={handleRecurringChange}
+          search={search}
+          onSearchChange={setSearch}
+          hideSearchBar
         />
 
-        <WalletBar
+        {/* 5. Low balance alert */}
+        <LowBalanceAlert transactions={transactions} />
+
+        {/* Everything else tucked away */}
+        <MoreSection
           transactions={transactions}
-          selectedWallet={walletFilter}
-          onSelectWallet={id => setWalletFilter(prev => prev === id ? null : id)}
-        />
-
-        <BottomTools
-          transactions={viewTransactions}
+          viewTransactions={viewTransactions}
+          transfers={transfers}
+          categories={categories}
+          viewMode={viewMode}
+          onViewMode={setViewMode}
+          walletFilter={walletFilter}
+          onWalletFilter={id => setWalletFilter(prev => prev === id ? null : id)}
           budget={budget}
           onSetBudget={setBudget}
           onRefresh={refresh}
           recurringRefresh={recurringRefresh}
-        />
-
-        <InsightsChart transactions={viewTransactions} />
-
-        <SavingsGoalCard transactions={transactions} />
-
-        <DueReminders />
-        <WeeklySummary transactions={viewTransactions} />
-        {viewMode === 'all' && (
-          <CategoryBreakdown transactions={transactions} transfers={transfers} categories={categories} />
-        )}
-        <CategoryTransferPanel
-          categories={categories}
           onTransfer={() => { reloadTransfers(); reloadCategories(); refresh(); }}
+          onTransferUndo={() => { reloadTransfers(); refresh(); }}
         />
-        <TransferHistory categories={categories} onUndo={() => { reloadTransfers(); refresh(); }} />
-        <YearEndReport transactions={transactions} transfers={transfers} categories={categories} />
       </div>
+
+      {showForm && (
+        <div
+          className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-pop-in"
+          style={{ background: 'rgba(28,25,23,0.55)' }}
+          onClick={() => setShowForm(false)}>
+          <div
+            className="w-full max-w-sm max-h-[92dvh] overflow-hidden rounded-t-[24px] sm:rounded-[24px]"
+            onClick={e => e.stopPropagation()}>
+            <TransactionForm
+              onSave={handleSave}
+              onCancel={() => setShowForm(false)}
+              onRecurringChange={handleRecurringChange}
+            />
+          </div>
+        </div>
+      )}
 
       {showStreakPopup && (
         <StreakPopup

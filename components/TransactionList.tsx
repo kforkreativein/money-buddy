@@ -39,6 +39,9 @@ export default function TransactionList({
   walletFilter,
   categoryFilter,
   onRecurringChange,
+  search: searchProp,
+  onSearchChange,
+  hideSearchBar = false,
 }: {
   transactions: Transaction[];
   onUpdate: (txn: Transaction) => void;
@@ -46,9 +49,14 @@ export default function TransactionList({
   walletFilter?: string | null;
   categoryFilter?: string | null;
   onRecurringChange?: () => void;
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  hideSearchBar?: boolean;
 }) {
   const [editing, setEditing] = useState<Transaction | null>(null);
-  const [search, setSearch] = useState('');
+  const [internalSearch, setInternalSearch] = useState('');
+  const search = searchProp ?? internalSearch;
+  const setSearch = onSearchChange ?? setInternalSearch;
   const [pendingDelete, setPendingDelete] = useState<{ txn: Transaction } | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -118,20 +126,21 @@ export default function TransactionList({
 
   return (
     <>
-      {/* Search bar */}
-      <div className="clay flex items-center gap-2 px-4 py-3">
-        <span className="text-base" aria-hidden>🔍</span>
-        <input
-          type="text"
-          value={search}
-          onChange={e => { setSearch(e.target.value); setShowAll(false); }}
-          placeholder="Search entries..."
-          className="flex-1 bg-transparent outline-none font-semibold text-stone-700 placeholder:text-stone-400 text-sm"
-        />
-        {search && (
-          <button onClick={() => setSearch('')} className="text-stone-400 font-black text-sm px-1">✕</button>
-        )}
-      </div>
+      {!hideSearchBar && (
+        <div className="clay flex items-center gap-2 px-4 py-3">
+          <span className="text-base" aria-hidden>🔍</span>
+          <input
+            type="text"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setShowAll(false); }}
+            placeholder="Search entries..."
+            className="flex-1 bg-transparent outline-none font-semibold text-stone-700 placeholder:text-stone-400 text-sm"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="text-stone-400 font-black text-sm px-1">✕</button>
+          )}
+        </div>
+      )}
 
       {/* Undo toast */}
       {pendingDelete && (
