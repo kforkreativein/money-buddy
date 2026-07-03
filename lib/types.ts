@@ -68,3 +68,24 @@ export interface Transaction {
   date: string;
   createdAt: number;
 }
+
+export interface SplitEntry {
+  id: string;
+  description: string;
+  totalAmount: number;
+  paidBy: 'me' | string;
+  splitAmong: string[]; // 'me' or member names
+  date: string;
+  createdAt: number;
+  linkedTransactionId?: string;
+}
+
+export interface SplitGroup {
+  id: string;
+  name: string;
+  members: string[]; // other people's names (not 'me')
+  entries: SplitEntry[];
+  settled: boolean;
+  settledAt?: number;
+  createdAt: number;
+}

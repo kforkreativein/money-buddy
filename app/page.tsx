@@ -1,7 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Transaction, Category, CategoryTransfer } from '@/lib/types';
+import { Transaction, Category, CategoryTransfer, SplitGroup } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
+import { getSplitGroups, groupNetTotal } from '@/lib/splits';
+import { getSplitEnabled } from '@/lib/settings';
 import { applyDueRecurring } from '@/lib/recurring';
 import { userStorageKey, restoreAuth } from '@/lib/auth';
 import { scheduleCloudSync } from '@/lib/supabase/sync';
@@ -23,6 +25,7 @@ import TransactionList from '@/components/TransactionList';
 import LowBalanceAlert from '@/components/LowBalanceAlert';
 import RecoveryBanner from '@/components/RecoveryBanner';
 import MoreSection from '@/components/MoreSection';
+import SplitTab from '@/components/SplitTab';
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -40,8 +43,16 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [recurringRefresh, setRecurringRefresh] = useState(0);
   const [search, setSearch] = useState('');
+  const [showSplitTab, setShowSplitTab] = useState(false);
+  const [splitGroupId, setSplitGroupId] = useState<string | undefined>(undefined);
+  const [splitGroups, setSplitGroups] = useState<SplitGroup[]>([]);
+  const [splitEnabled, setSplitEnabled] = useState(false);
 
   const refresh = useCallback(() => setTransactions(getTransactions()), []);
+  const reloadSplits = useCallback(() => {
+    setSplitEnabled(getSplitEnabled());
+    setSplitGroups(getSplitGroups());
+  }, []);
   const reloadCategories = useCallback(() => setCategories(getCategories()), []);
   const reloadTransfers = useCallback(() => setTransfers(getTransfers()), []);
 
@@ -63,6 +74,7 @@ export default function Home() {
     refresh();
     reloadCategories();
     reloadTransfers();
+    reloadSplits();
     setBudget(Number(localStorage.getItem(userStorageKey('money_buddy_budget')) || 0));
     const visit = recordDailyVisit();
     setStreak(visit.streak);
@@ -80,7 +92,7 @@ export default function Home() {
       setShowForm(true);
       window.history.replaceState({}, '', '/');
     }
-  }, [refresh, reloadCategories, reloadTransfers]);
+  }, [refresh, reloadCategories, reloadTransfers, reloadSplits]);
 
   useEffect(() => {
     let active = true;
@@ -172,6 +184,37 @@ export default function Home() {
           ➕ Add Income / Expense / Invest
         </button>
 
+        {/* Split group pinned cards */}
+        {splitEnabled && splitGroups.filter(g => !g.settled).map(g => {
+          const net = groupNetTotal(g);
+          return (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => { setSplitGroupId(g.id); setShowSplitTab(true); }}
+              className="clay-btn clay w-full px-4 py-3 flex items-center justify-between min-h-[48px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <span>✂️</span>
+                <span className="font-black text-stone-800 truncate">{g.name}</span>
+                <span className="text-xs font-semibold text-stone-400 truncate hidden sm:inline">{g.members.join(', ')}</span>
+              </div>
+              <span className={`text-xs font-black shrink-0 ml-2 ${net === 0 ? 'text-stone-400' : net > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {net === 0 ? 'All even' : net > 0 ? `+₹${Math.abs(net).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : `-₹${Math.abs(net).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* Split groups button */}
+        {splitEnabled && (
+          <button
+            type="button"
+            onClick={() => { setSplitGroupId(undefined); setShowSplitTab(true); }}
+            className="clay-btn clay w-full py-3 font-bold text-stone-600 text-center text-sm min-h-[44px]">
+            ✂️ Split Groups
+          </button>
+        )}
+
         {/* 2. Monthly stats */}
         <StatsBar
           transactions={viewTransactions}
@@ -257,8 +300,16 @@ export default function Home() {
       )}
       {showSettings && (
         <SettingsPanel
-          onClose={() => setShowSettings(false)}
-          onChange={() => { reloadCategories(); reloadTransfers(); refresh(); }}
+          onClose={() => { setShowSettings(false); reloadSplits(); }}
+          onChange={() => { reloadCategories(); reloadTransfers(); refresh(); reloadSplits(); }}
+        />
+      )}
+
+      {showSplitTab && (
+        <SplitTab
+          onClose={() => { setShowSplitTab(false); reloadSplits(); }}
+          onExpenseAdded={() => { refresh(); reloadSplits(); }}
+          initialGroupId={splitGroupId}
         />
       )}
     </main>

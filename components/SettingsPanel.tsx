@@ -12,7 +12,7 @@ import {
   notificationsEnabled,
   setNotificationsEnabled,
 } from '@/lib/notifications';
-import { getCreditCardsEnabled, setCreditCardsEnabled } from '@/lib/settings';
+import { getCreditCardsEnabled, setCreditCardsEnabled, getSplitEnabled, setSplitEnabled } from '@/lib/settings';
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -32,6 +32,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   const [notifOn, setNotifOn] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
   const [ccOn, setCcOn] = useState(false);
+  const [splitOn, setSplitOn] = useState(false);
 
   function reload() {
     const cats = getCategories();
@@ -46,6 +47,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
     reload();
     setNotifOn(notificationsEnabled());
     setCcOn(getCreditCardsEnabled());
+    setSplitOn(getSplitEnabled());
   }, []);
 
   async function toggleNotifications() {
@@ -145,6 +147,22 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
               }`}>
               <span>💳 Credit card wallets</span>
               <span className="text-xs font-black">{ccOn ? 'ON' : 'OFF'}</span>
+            </button>
+          </div>
+
+          <div className="clay p-3 flex flex-col gap-2">
+            <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Split Groups</p>
+            <p className="text-xs font-semibold text-stone-500 leading-relaxed">
+              Track shared expenses with friends. See who owes who and settle up easily — no one else needs the app.
+            </p>
+            <button
+              type="button"
+              onClick={() => { const next = !splitOn; setSplitOn(next); setSplitEnabled(next); }}
+              className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm min-h-[44px] ${
+                splitOn ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+              }`}>
+              <span>✂️ Split groups</span>
+              <span className="text-xs font-black">{splitOn ? 'ON' : 'OFF'}</span>
             </button>
           </div>
 
