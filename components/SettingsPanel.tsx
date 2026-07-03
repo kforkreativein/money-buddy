@@ -12,6 +12,7 @@ import {
   notificationsEnabled,
   setNotificationsEnabled,
 } from '@/lib/notifications';
+import { getCreditCardsEnabled, setCreditCardsEnabled } from '@/lib/settings';
 
 function fmt(n: number) {
   return `₹${n.toLocaleString('en-IN')}`;
@@ -30,6 +31,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
   const [notifOn, setNotifOn] = useState(false);
   const [notifMsg, setNotifMsg] = useState('');
+  const [ccOn, setCcOn] = useState(false);
 
   function reload() {
     const cats = getCategories();
@@ -43,6 +45,7 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
   useEffect(() => {
     reload();
     setNotifOn(notificationsEnabled());
+    setCcOn(getCreditCardsEnabled());
   }, []);
 
   async function toggleNotifications() {
@@ -127,6 +130,22 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
               <span className="text-xs font-black">{notifOn ? 'ON' : 'OFF'}</span>
             </button>
             {notifMsg && <p className="text-xs font-semibold text-violet-700">{notifMsg}</p>}
+          </div>
+
+          <div className="clay p-3 flex flex-col gap-2">
+            <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Credit Cards</p>
+            <p className="text-xs font-semibold text-stone-500 leading-relaxed">
+              Track credit card spending and outstanding balances separately from your bank wallets.
+            </p>
+            <button
+              type="button"
+              onClick={() => { const next = !ccOn; setCcOn(next); setCreditCardsEnabled(next); }}
+              className={`clay-btn flex items-center justify-between px-4 py-3 rounded-[14px] font-bold text-sm min-h-[44px] ${
+                ccOn ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+              }`}>
+              <span>💳 Credit card wallets</span>
+              <span className="text-xs font-black">{ccOn ? 'ON' : 'OFF'}</span>
+            </button>
           </div>
 
           <div>

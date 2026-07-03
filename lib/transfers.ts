@@ -152,6 +152,39 @@ export function sumRealIncome(transactions: Transaction[], transfers: CategoryTr
     .reduce((s, t) => s + t.amount, 0);
 }
 
+/** Pay a credit card bill: expense from bank wallet + income to CC wallet (excluded from totals via Transfer prefix). */
+export function executeCCPayment(ccWalletId: string, fromWalletId: string, amount: number, date: string): void {
+  const wallets = getWallets();
+  const ccWallet = wallets.find(w => w.id === ccWalletId);
+  const bankWallet = wallets.find(w => w.id === fromWalletId);
+  if (!ccWallet || !bankWallet) return;
+  const now = Date.now();
+  const fromPm = walletToPaymentMode(fromWalletId);
+  const toPm = walletToPaymentMode(ccWalletId);
+  addTransaction({
+    id: crypto.randomUUID(),
+    type: 'expense',
+    amount,
+    description: `Transfer → ${ccWallet.name}`,
+    paymentMode: fromPm.paymentMode,
+    bank: fromPm.bank,
+    walletId: fromWalletId,
+    date,
+    createdAt: now,
+  });
+  addTransaction({
+    id: crypto.randomUUID(),
+    type: 'income',
+    amount,
+    description: `Transfer ← ${bankWallet.name}`,
+    paymentMode: toPm.paymentMode,
+    bank: toPm.bank,
+    walletId: ccWalletId,
+    date,
+    createdAt: now + 1,
+  });
+}
+
 export function sumRealExpense(transactions: Transaction[], transfers: CategoryTransfer[]): number {
   const ids = getInternalTransferTxnIds(transfers);
   return transactions

@@ -9,6 +9,8 @@ export interface Wallet {
   emoji: string;
   openingBalance?: number;
   minBalance?: number;
+  isCreditCard?: boolean;
+  creditLimit?: number;
 }
 
 export interface Category {

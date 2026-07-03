@@ -55,7 +55,7 @@ export default function MoreSection(props: Props) {
           <BusinessProfitCard categories={categories} transactions={transactions} transfers={transfers} />
           <AffordCheckCard categories={categories} transactions={transactions} transfers={transfers} />
           <MonthlyCloseCard transactions={transactions} transfers={transfers} categories={categories} />
-          <WalletBar transactions={transactions} selectedWallet={walletFilter} onSelectWallet={onWalletFilter} />
+          <WalletBar transactions={transactions} selectedWallet={walletFilter} onSelectWallet={onWalletFilter} onChange={onRefresh} />
           <BottomTools
             transactions={viewTransactions}
             budget={budget}
