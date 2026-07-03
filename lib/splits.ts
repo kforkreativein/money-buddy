@@ -53,6 +53,10 @@ export function settleGroup(groupId: string) {
   ));
 }
 
+export function updateSplitGroup(groupId: string, patch: Partial<Pick<SplitGroup, 'name' | 'members' | 'pinned'>>) {
+  save(getSplitGroups().map(g => g.id === groupId ? { ...g, ...patch } : g));
+}
+
 export function deleteSplitGroup(groupId: string) {
   save(getSplitGroups().filter(g => g.id !== groupId));
 }

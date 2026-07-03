@@ -5,6 +5,7 @@ import { getWallets, legacyWalletId } from '@/lib/wallets';
 import { getCategories, getCategoryById } from '@/lib/categories';
 import { findRuleForTransaction } from '@/lib/recurring';
 import { getTransfers, getInternalTransferTxnIds, isInternalTransferTxn, sumRealExpense, sumRealIncome } from '@/lib/transfers';
+import { getSplitGroups } from '@/lib/splits';
 import TransactionForm from './TransactionForm';
 
 function walletLabel(t: Transaction, wallets: Wallet[]): { emoji: string; name: string } {
@@ -43,6 +44,7 @@ export default function TransactionList({
   search: searchProp,
   onSearchChange,
   hideSearchBar = false,
+  onOpenSplitGroup,
 }: {
   transactions: Transaction[];
   onUpdate: (txn: Transaction) => void;
@@ -53,6 +55,7 @@ export default function TransactionList({
   search?: string;
   onSearchChange?: (value: string) => void;
   hideSearchBar?: boolean;
+  onOpenSplitGroup?: (groupId: string) => void;
 }) {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [internalSearch, setInternalSearch] = useState('');
@@ -187,21 +190,35 @@ export default function TransactionList({
 
                 {txns.map(txn => {
                   const isTransfer = isInternalTransferTxn(txn, transferTxnIds);
-                  const cardClass = isTransfer
+                  const isSplit = txn.description?.startsWith('✂️');
+
+                  // Find split group for this transaction (to open on pencil tap)
+                  const splitGroupId = isSplit
+                    ? getSplitGroups().find(g => g.entries.some(e => e.linkedTransactionId === txn.id))?.id
+                    : undefined;
+
+                  // Display name: strip ✂️ prefix so just the group name shows
+                  const displayDesc = isSplit
+                    ? txn.description.replace(/^✂️\s*/, '')
+                    : txn.description;
+
+                  const cardClass = isSplit
+                    ? 'bg-gradient-to-r from-teal-50 to-white shadow-[5px_5px_10px_rgba(20,184,166,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
+                    : isTransfer
                     ? 'bg-gradient-to-r from-violet-50 to-white shadow-[5px_5px_10px_rgba(167,139,250,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
                     : txn.type === 'income'
                     ? 'bg-gradient-to-r from-emerald-50 to-white shadow-[5px_5px_10px_rgba(52,211,153,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
                     : txn.type === 'investment'
                       ? 'bg-gradient-to-r from-blue-50 to-white shadow-[5px_5px_10px_rgba(96,165,250,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]'
                       : 'bg-gradient-to-r from-rose-50 to-white shadow-[5px_5px_10px_rgba(248,113,113,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]';
-                  const iconClass = isTransfer ? 'clay-purple' : txn.type === 'income' ? 'clay-green' : txn.type === 'investment' ? 'clay-blue' : 'clay-red';
-                  const icon = isTransfer ? '🔁' : txn.type === 'income' ? '💰' : txn.type === 'investment' ? '📈' : '💸';
-                  const amountClass = isTransfer ? 'text-violet-700' : txn.type === 'income' ? 'text-emerald-600' : txn.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
+                  const iconClass = isSplit ? 'clay-amber' : isTransfer ? 'clay-purple' : txn.type === 'income' ? 'clay-green' : txn.type === 'investment' ? 'clay-blue' : 'clay-red';
+                  const icon = isSplit ? '✂️' : isTransfer ? '🔁' : txn.type === 'income' ? '💰' : txn.type === 'investment' ? '📈' : '💸';
+                  const amountClass = isSplit ? 'text-teal-700' : isTransfer ? 'text-violet-700' : txn.type === 'income' ? 'text-emerald-600' : txn.type === 'investment' ? 'text-blue-600' : 'text-rose-500';
                   const amountPrefix = txn.type === 'income' ? '+' : txn.type === 'investment' ? '↑' : '-';
 
                   return (
                   <div key={txn.id}
-                    className={`animate-pop-in flex items-center gap-3 p-4 rounded-[20px] border-2 border-white/60 ${cardClass}`}>
+                    className={`animate-pop-in flex items-center gap-3 p-4 rounded-[20px] border-2 ${isSplit ? 'border-teal-100' : 'border-white/60'} ${cardClass}`}>
 
                     <div className={`text-2xl w-11 h-11 flex items-center justify-center rounded-[12px] flex-shrink-0 ${iconClass}`}
                       aria-hidden="true">
@@ -209,8 +226,8 @@ export default function TransactionList({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      {txn.description
-                        ? <p className="font-black text-stone-800 text-sm truncate">{txn.description}</p>
+                      {displayDesc
+                        ? <p className="font-black text-stone-800 text-sm truncate">{displayDesc}</p>
                         : <p className="font-semibold text-stone-400 text-sm italic">No note</p>
                       }
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -220,7 +237,12 @@ export default function TransactionList({
                             {wl.emoji} {wl.name}
                           </span>
                         ); })()}
-                        {txn.categoryId && (txn.type === 'income' || txn.type === 'expense') && (() => {
+                        {isSplit && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                            ✂️ Split
+                          </span>
+                        )}
+                        {!isSplit && txn.categoryId && (txn.type === 'income' || txn.type === 'expense') && (() => {
                           const cat = getCategoryById(txn.categoryId!);
                           if (!cat) return null;
                           return (
@@ -229,7 +251,7 @@ export default function TransactionList({
                             </span>
                           );
                         })()}
-                        {findRuleForTransaction(txn) && (
+                        {!isSplit && findRuleForTransaction(txn) && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                             🔄 Recurring
                           </span>
@@ -247,10 +269,17 @@ export default function TransactionList({
                         {amountPrefix}{fmt(txn.amount)}
                       </span>
                       <div className="flex gap-1.5">
-                        <button onClick={() => setEditing(txn)}
-                          aria-label={`Edit ${txn.description}`}
+                        <button
+                          onClick={() => {
+                            if (isSplit && splitGroupId && onOpenSplitGroup) {
+                              onOpenSplitGroup(splitGroupId);
+                            } else if (!isSplit) {
+                              setEditing(txn);
+                            }
+                          }}
+                          aria-label={isSplit ? `Open split group` : `Edit ${txn.description}`}
                           className="clay-btn text-xs bg-white text-stone-600 font-bold px-2.5 py-1.5 rounded-xl border border-stone-200 min-h-[32px]">
-                          ✏️
+                          {isSplit ? '✂️' : '✏️'}
                         </button>
                         <button onClick={() => handleDelete(txn)}
                           aria-label={`Delete ${txn.description}`}

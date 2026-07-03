@@ -166,8 +166,8 @@ export default function SettingsPanel({ onClose, onChange }: Props) {
             </button>
           </div>
 
-          <div>
-            <p className="text-xs font-black text-stone-400 uppercase tracking-wider mb-1">Categories</p>
+          <div className="clay p-3 flex flex-col gap-1">
+            <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Categories</p>
             <p className="text-xs font-semibold text-stone-500 leading-relaxed">
               Tag income &amp; expenses (e.g. Personal, Business). Link each category to a bank wallet — transfers between categories will move money automatically (e.g. Yes Bank → HDFC).
             </p>

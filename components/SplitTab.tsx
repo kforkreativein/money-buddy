@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { SplitGroup } from '@/lib/types';
 import {
   getSplitGroups, addSplitGroup, addSplitEntry, deleteSplitEntry,
-  settleGroup, calcBalances, groupNetTotal,
+  settleGroup, calcBalances, groupNetTotal, updateSplitGroup,
 } from '@/lib/splits';
 import { addTransaction } from '@/lib/storage';
 import { getWallets } from '@/lib/wallets';
@@ -30,6 +30,10 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [memberInput, setMemberInput] = useState('');
   const [membersList, setMembersList] = useState<string[]>([]);
 
+  // edit-members inline (in detail view)
+  const [showEditMembers, setShowEditMembers] = useState(false);
+  const [addMemberInput, setAddMemberInput] = useState('');
+
   // new-entry form
   const [entryDesc, setEntryDesc] = useState('');
   const [entryAmount, setEntryAmount] = useState('');
@@ -46,6 +50,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
   function openGroup(id: string) {
     setSelectedId(id);
+    setShowEditMembers(false);
     setView('detail');
   }
 
@@ -60,11 +65,31 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     setView('detail');
   }
 
-  function addMember() {
+  function addMemberToNewGroup() {
     const m = memberInput.trim();
     if (!m || membersList.includes(m)) return;
     setMembersList(prev => [...prev, m]);
     setMemberInput('');
+  }
+
+  function addMemberToExistingGroup() {
+    if (!selectedGroup) return;
+    const m = addMemberInput.trim();
+    if (!m || selectedGroup.members.includes(m)) return;
+    updateSplitGroup(selectedGroup.id, { members: [...selectedGroup.members, m] });
+    setAddMemberInput('');
+    reload();
+  }
+
+  function removeMemberFromGroup(name: string) {
+    if (!selectedGroup) return;
+    updateSplitGroup(selectedGroup.id, { members: selectedGroup.members.filter(x => x !== name) });
+    reload();
+  }
+
+  function togglePin(groupId: string, current: boolean) {
+    updateSplitGroup(groupId, { pinned: !current });
+    reload();
   }
 
   function openNewEntry(group: SplitGroup) {
@@ -91,7 +116,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
         id: txnId,
         type: 'expense',
         amount,
-        description: `✂️ ${group.name} — ${entryDesc.trim()}`,
+        // only show group name in main tracker, not the expense detail
+        description: `✂️ ${group.name}`,
         paymentMode: 'cash',
         walletId: wallets[0]?.id,
         date: entryDate,
@@ -133,7 +159,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
   function goBack() {
     if (view === 'new-entry') setView('detail');
-    else setView('list');
+    else { setShowEditMembers(false); setView('list'); }
   }
 
   return (
@@ -149,9 +175,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
         {/* Header */}
         <div className="flex items-center gap-2">
           {view !== 'list' && (
-            <button
-              type="button"
-              onClick={goBack}
+            <button type="button" onClick={goBack}
               className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black flex items-center justify-center shrink-0">
               ←
             </button>
@@ -162,7 +186,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             {view === 'new-group' && '➕ New Group'}
             {view === 'new-entry' && '➕ Add Expense'}
           </h2>
-          <button type="button" onClick={onClose} className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black shrink-0">✕</button>
+          <button type="button" onClick={onClose}
+            className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black shrink-0">✕</button>
         </div>
 
         {/* ── LIST VIEW ── */}
@@ -180,14 +205,14 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 {activeGroups.map(g => {
                   const net = groupNetTotal(g);
                   return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => openGroup(g.id)}
+                    <button key={g.id} type="button" onClick={() => openGroup(g.id)}
                       className="clay-btn clay p-3 flex items-center justify-between text-left w-full">
                       <div className="min-w-0">
-                        <p className="font-black text-stone-800 truncate">{g.name}</p>
-                        <p className="text-xs font-semibold text-stone-400 truncate">{g.members.join(', ')}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-black text-stone-800 truncate">{g.name}</p>
+                          {g.pinned && <span className="text-xs">📌</span>}
+                        </div>
+                        <p className="text-xs font-semibold text-stone-400 truncate">Me, {g.members.join(', ')}</p>
                       </div>
                       <div className="text-right shrink-0 ml-2">
                         {net === 0
@@ -207,14 +232,11 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Past Groups</p>
                 {pastGroups.map(g => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => openGroup(g.id)}
+                  <button key={g.id} type="button" onClick={() => openGroup(g.id)}
                     className="clay-btn clay p-3 flex items-center justify-between text-left w-full opacity-60">
                     <div className="min-w-0">
                       <p className="font-black text-stone-800 truncate">{g.name}</p>
-                      <p className="text-xs font-semibold text-stone-400 truncate">{g.members.join(', ')}</p>
+                      <p className="text-xs font-semibold text-stone-400 truncate">Me, {g.members.join(', ')}</p>
                     </div>
                     <p className="text-xs font-black text-stone-400 shrink-0 ml-2">✓ Settled</p>
                   </button>
@@ -222,9 +244,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => setView('new-group')}
+            <button type="button" onClick={() => setView('new-group')}
               className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px]">
               ➕ New Group
             </button>
@@ -236,6 +256,20 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
           const balances = calcBalances(selectedGroup);
           return (
             <div className="flex flex-col gap-3">
+              {/* Pin toggle */}
+              {!selectedGroup.settled && (
+                <button type="button"
+                  onClick={() => togglePin(selectedGroup.id, !!selectedGroup.pinned)}
+                  className={`clay-btn flex items-center justify-between px-4 py-2.5 rounded-[12px] font-bold text-sm ${
+                    selectedGroup.pinned
+                      ? 'clay-amber text-amber-900'
+                      : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                  }`}>
+                  <span>📌 Pin to home screen</span>
+                  <span className="text-xs font-black">{selectedGroup.pinned ? 'PINNED' : 'OFF'}</span>
+                </button>
+              )}
+
               {/* Per-person balances */}
               <div className="clay p-3 flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Who owes who</p>
@@ -255,6 +289,50 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 })}
               </div>
 
+              {/* Edit members */}
+              {!selectedGroup.settled && (
+                <div className="clay p-3 flex flex-col gap-2">
+                  <button type="button"
+                    onClick={() => setShowEditMembers(v => !v)}
+                    className="flex items-center justify-between w-full">
+                    <p className="text-xs font-black text-stone-500 uppercase tracking-wide">
+                      Members — Me, {selectedGroup.members.join(', ')}
+                    </p>
+                    <span className="text-xs font-black text-stone-400">{showEditMembers ? '▲' : '✏️'}</span>
+                  </button>
+                  {showEditMembers && (
+                    <div className="flex flex-col gap-2 pt-1">
+                      <p className="text-[11px] font-semibold text-violet-600">
+                        💡 "Me" is always included — you don't need to add yourself.
+                      </p>
+                      {selectedGroup.members.map(m => (
+                        <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
+                          <span className="font-bold text-stone-700">{m}</span>
+                          <button type="button"
+                            onClick={() => removeMemberFromGroup(m)}
+                            className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <input type="text" value={addMemberInput}
+                          onChange={e => setAddMemberInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && addMemberToExistingGroup()}
+                          placeholder="Add member name"
+                          className="clay flex-1 px-3 py-2 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 text-sm"
+                        />
+                        <button type="button" onClick={addMemberToExistingGroup}
+                          disabled={!addMemberInput.trim()}
+                          className="clay-btn clay-purple clay px-3 py-2 font-black text-violet-900 rounded-[10px] text-sm disabled:opacity-40">
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Entries */}
               {selectedGroup.entries.length > 0 && (
                 <div className="flex flex-col gap-2">
@@ -266,8 +344,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="font-black text-stone-700">{fmt(e.totalAmount)}</span>
                           {!selectedGroup.settled && (
-                            <button
-                              type="button"
+                            <button type="button"
                               onClick={() => handleDeleteEntry(selectedGroup.id, e.id)}
                               className="clay-btn text-rose-400 text-xs px-1.5 py-1 rounded-[6px]">
                               ✕
@@ -294,15 +371,11 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
               {!selectedGroup.settled ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => openNewEntry(selectedGroup)}
+                  <button type="button" onClick={() => openNewEntry(selectedGroup)}
                     className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px]">
                     ➕ Add Expense
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSettle(selectedGroup.id)}
+                  <button type="button" onClick={() => handleSettle(selectedGroup.id)}
                     className="clay-btn clay-green clay py-3 font-black text-emerald-900 text-center rounded-[14px]">
                     ✓ Mark as Settled
                   </button>
@@ -320,10 +393,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
         {view === 'new-group' && (
           <div className="flex flex-col gap-3">
             <div className="clay p-3 flex flex-col gap-2">
-              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Group name *</p>
-              <input
-                type="text"
-                value={groupName}
+              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Group name</p>
+              <input type="text" value={groupName}
                 onChange={e => setGroupName(e.target.value)}
                 placeholder="e.g. Goa Trip, Office Lunch"
                 className="clay px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 w-full"
@@ -331,31 +402,28 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             </div>
 
             <div className="clay p-3 flex flex-col gap-2">
-              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Members *</p>
-              <p className="text-xs font-semibold text-stone-400">Add the other people in this group (not yourself).</p>
+              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Other members</p>
+              <p className="text-[11px] font-semibold text-violet-600">
+                💡 You (Me) are always included — only add the others here.
+              </p>
               {membersList.map(m => (
                 <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
                   <span className="font-bold text-stone-700">{m}</span>
-                  <button
-                    type="button"
+                  <button type="button"
                     onClick={() => setMembersList(prev => prev.filter(x => x !== m))}
                     className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">
-                    ✕
+                    Remove
                   </button>
                 </div>
               ))}
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={memberInput}
+                <input type="text" value={memberInput}
                   onChange={e => setMemberInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addMember()}
+                  onKeyDown={e => e.key === 'Enter' && addMemberToNewGroup()}
                   placeholder="e.g. Priya, Sneha, Rahul"
                   className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400"
                 />
-                <button
-                  type="button"
-                  onClick={addMember}
+                <button type="button" onClick={addMemberToNewGroup}
                   disabled={!memberInput.trim()}
                   className="clay-btn clay-purple clay px-4 py-2 font-black text-violet-900 rounded-[10px] disabled:opacity-40">
                   +
@@ -363,9 +431,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCreateGroup}
+            <button type="button" onClick={handleCreateGroup}
               disabled={!groupName.trim() || membersList.length === 0}
               className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px] disabled:opacity-40">
               Create Group →
@@ -378,9 +444,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
           <div className="flex flex-col gap-3">
             <div className="clay p-3 flex flex-col gap-2">
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">What was it?</p>
-              <input
-                type="text"
-                value={entryDesc}
+              <input type="text" value={entryDesc}
                 onChange={e => setEntryDesc(e.target.value)}
                 placeholder="e.g. Lunch, Petrol, Movie tickets"
                 className="clay px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 w-full"
@@ -391,10 +455,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Total bill amount</p>
               <div className="flex items-center gap-2">
                 <span className="font-black text-stone-400 text-lg">₹</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={entryAmount}
+                <input type="text" inputMode="decimal" value={entryAmount}
                   onChange={e => setEntryAmount(e.target.value.replace(/[^\d.]/g, ''))}
                   placeholder="0"
                   className="clay flex-1 px-3 py-2.5 font-black text-stone-700 text-xl bg-transparent outline-none placeholder:text-stone-400"
@@ -406,10 +467,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Who paid the bill?</p>
               <div className="flex flex-wrap gap-2">
                 {['me', ...selectedGroup.members].map(name => (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setEntryPaidBy(name)}
+                  <button key={name} type="button" onClick={() => setEntryPaidBy(name)}
                     className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
                       entryPaidBy === name
                         ? 'clay-purple text-violet-900'
@@ -425,10 +483,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Split among</p>
               <div className="flex flex-wrap gap-2">
                 {['me', ...selectedGroup.members].map(name => (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => toggleSplitAmong(name)}
+                  <button key={name} type="button" onClick={() => toggleSplitAmong(name)}
                     className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
                       entrySplitAmong.includes(name)
                         ? 'clay-green text-emerald-900'
@@ -447,9 +502,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
             <div className="clay p-3 flex flex-col gap-2">
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Date</p>
-              <input
-                type="date"
-                value={entryDate}
+              <input type="date" value={entryDate}
                 onChange={e => setEntryDate(e.target.value)}
                 className="clay px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none w-full"
               />
@@ -458,14 +511,12 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             {entryPaidBy === 'me' && entryAmount && (
               <div className="clay-amber clay rounded-[12px] px-3 py-2.5">
                 <p className="text-xs font-bold text-amber-800">
-                  💡 Since you paid, ₹{Number(entryAmount).toLocaleString('en-IN')} will be added as an expense in your tracker.
+                  💡 Since you paid, ₹{Number(entryAmount).toLocaleString('en-IN')} will be recorded as an expense in your tracker.
                 </p>
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleAddEntry}
+            <button type="button" onClick={handleAddEntry}
               disabled={!entryDesc.trim() || !entryAmount || entrySplitAmong.length === 0}
               className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px] disabled:opacity-40">
               Add Expense ✓

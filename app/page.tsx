@@ -184,8 +184,8 @@ export default function Home() {
           ➕ Add Income / Expense / Invest
         </button>
 
-        {/* Split group pinned cards */}
-        {splitEnabled && splitGroups.filter(g => !g.settled).map(g => {
+        {/* Split group pinned cards — only pinned ones */}
+        {splitEnabled && splitGroups.filter(g => !g.settled && g.pinned).map(g => {
           const net = groupNetTotal(g);
           return (
             <button
@@ -242,6 +242,7 @@ export default function Home() {
           search={search}
           onSearchChange={setSearch}
           hideSearchBar
+          onOpenSplitGroup={id => { setSplitGroupId(id); setShowSplitTab(true); }}
         />
 
         {/* 5. Low balance alert */}

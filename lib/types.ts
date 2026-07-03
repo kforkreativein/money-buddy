@@ -88,4 +88,5 @@ export interface SplitGroup {
   settled: boolean;
   settledAt?: number;
   createdAt: number;
+  pinned?: boolean;
 }
