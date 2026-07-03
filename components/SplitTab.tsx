@@ -112,11 +112,12 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     if (entryPaidBy === 'me') {
       const wallets = getWallets();
       const txnId = crypto.randomUUID();
+      // Record only the user's share, not the full bill
+      const myShare = amount / entrySplitAmong.length;
       addTransaction({
         id: txnId,
         type: 'expense',
-        amount,
-        // only show group name in main tracker, not the expense detail
+        amount: myShare,
         description: `✂️ ${group.name}`,
         paymentMode: 'cash',
         walletId: wallets[0]?.id,
@@ -508,10 +509,10 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               />
             </div>
 
-            {entryPaidBy === 'me' && entryAmount && (
+            {entryPaidBy === 'me' && entryAmount && entrySplitAmong.length > 0 && (
               <div className="clay-amber clay rounded-[12px] px-3 py-2.5">
                 <p className="text-xs font-bold text-amber-800">
-                  💡 Since you paid, ₹{Number(entryAmount).toLocaleString('en-IN')} will be recorded as an expense in your tracker.
+                  💡 Your share (₹{(Number(entryAmount) / entrySplitAmong.length).toLocaleString('en-IN', { maximumFractionDigits: 2 })}) will be recorded as an expense in your tracker — not the full bill.
                 </p>
               </div>
             )}

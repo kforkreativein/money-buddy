@@ -197,9 +197,9 @@ export default function TransactionList({
                     ? getSplitGroups().find(g => g.entries.some(e => e.linkedTransactionId === txn.id))?.id
                     : undefined;
 
-                  // Display name: strip ✂️ prefix so just the group name shows
+                  // Strip ✂️ prefix and any " — detail" suffix (old format)
                   const displayDesc = isSplit
-                    ? txn.description.replace(/^✂️\s*/, '')
+                    ? txn.description.replace(/^✂️\s*/, '').split(' — ')[0].trim()
                     : txn.description;
 
                   const cardClass = isSplit
