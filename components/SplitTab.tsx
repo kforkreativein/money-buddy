@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { SplitGroup } from '@/lib/types';
 import {
   getSplitGroups, addSplitGroup, addSplitEntry, deleteSplitEntry,
-  settleGroup, calcBalances, groupNetTotal, updateSplitGroup,
+  settleGroup, calcBalances, groupNetTotal, updateSplitGroup, deleteSplitGroup,
 } from '@/lib/splits';
 import { addTransaction } from '@/lib/storage';
 import { getWallets } from '@/lib/wallets';
@@ -33,6 +33,10 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   // edit-members inline (in detail view)
   const [showEditMembers, setShowEditMembers] = useState(false);
   const [addMemberInput, setAddMemberInput] = useState('');
+
+  // rename group
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
   // new-entry form
   const [entryDesc, setEntryDesc] = useState('');
@@ -90,6 +94,21 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   function togglePin(groupId: string, current: boolean) {
     updateSplitGroup(groupId, { pinned: !current });
     reload();
+  }
+
+  function saveRename() {
+    if (!selectedGroup) return;
+    const name = renameValue.trim();
+    if (name && name !== selectedGroup.name) updateSplitGroup(selectedGroup.id, { name });
+    setRenaming(false);
+    reload();
+  }
+
+  function handleDeleteGroup(groupId: string) {
+    if (!confirm('Delete this group? This cannot be undone.')) return;
+    deleteSplitGroup(groupId);
+    reload();
+    setView('list');
   }
 
   function openNewEntry(group: SplitGroup) {
@@ -254,22 +273,73 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
         {/* ── DETAIL VIEW ── */}
         {view === 'detail' && selectedGroup && (() => {
+          // Settled: show only net expense summary
+          if (selectedGroup.settled) {
+            const myTotal = selectedGroup.entries
+              .filter(e => e.splitAmong.includes('me'))
+              .reduce((sum, e) => sum + e.totalAmount / e.splitAmong.length, 0);
+            return (
+              <div className="flex flex-col gap-3">
+                <div className="clay-green clay p-4 rounded-[16px] flex flex-col items-center gap-1 text-center">
+                  <span className="text-2xl">✓</span>
+                  <p className="font-black text-emerald-800 text-base">Settled</p>
+                  <p className="text-xs font-semibold text-emerald-700">Your total share in this group</p>
+                  <p className="font-black text-emerald-900 text-2xl">{fmt(myTotal)}</p>
+                </div>
+                <button type="button" onClick={() => handleDeleteGroup(selectedGroup.id)}
+                  className="clay-btn clay-red clay py-3 font-black text-rose-900 text-center rounded-[14px]">
+                  🗑️ Delete Group
+                </button>
+              </div>
+            );
+          }
+
           const balances = calcBalances(selectedGroup);
           return (
             <div className="flex flex-col gap-3">
+              {/* Rename group */}
+              <div className="clay p-3 flex flex-col gap-2">
+                <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Group name</p>
+                {renaming ? (
+                  <div className="flex gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
+                      className="clay flex-1 px-3 py-2 font-bold text-stone-700 bg-transparent outline-none text-sm"
+                    />
+                    <button type="button" onClick={saveRename}
+                      className="clay-btn clay-green clay px-3 py-2 font-black text-emerald-900 rounded-[10px] text-sm">
+                      Save
+                    </button>
+                    <button type="button" onClick={() => setRenaming(false)}
+                      className="clay-btn px-3 py-2 font-black text-stone-500 rounded-[10px] text-sm bg-stone-100 border border-stone-200">
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button"
+                    onClick={() => { setRenameValue(selectedGroup.name); setRenaming(true); }}
+                    className="flex items-center justify-between w-full clay-btn px-3 py-2 rounded-[10px] bg-stone-50 border border-stone-200">
+                    <span className="font-bold text-stone-700">{selectedGroup.name}</span>
+                    <span className="text-xs text-stone-400">✏️ Rename</span>
+                  </button>
+                )}
+              </div>
+
               {/* Pin toggle */}
-              {!selectedGroup.settled && (
-                <button type="button"
-                  onClick={() => togglePin(selectedGroup.id, !!selectedGroup.pinned)}
-                  className={`clay-btn flex items-center justify-between px-4 py-2.5 rounded-[12px] font-bold text-sm ${
-                    selectedGroup.pinned
-                      ? 'clay-amber text-amber-900'
-                      : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
-                  }`}>
-                  <span>📌 Pin to home screen</span>
-                  <span className="text-xs font-black">{selectedGroup.pinned ? 'PINNED' : 'OFF'}</span>
-                </button>
-              )}
+              <button type="button"
+                onClick={() => togglePin(selectedGroup.id, !!selectedGroup.pinned)}
+                className={`clay-btn flex items-center justify-between px-4 py-2.5 rounded-[12px] font-bold text-sm ${
+                  selectedGroup.pinned
+                    ? 'clay-amber text-amber-900'
+                    : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                }`}>
+                <span>📌 Pin to home screen</span>
+                <span className="text-xs font-black">{selectedGroup.pinned ? 'PINNED' : 'OFF'}</span>
+              </button>
 
               {/* Per-person balances */}
               <div className="clay p-3 flex flex-col gap-2">
@@ -291,48 +361,46 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               </div>
 
               {/* Edit members */}
-              {!selectedGroup.settled && (
-                <div className="clay p-3 flex flex-col gap-2">
-                  <button type="button"
-                    onClick={() => setShowEditMembers(v => !v)}
-                    className="flex items-center justify-between w-full">
-                    <p className="text-xs font-black text-stone-500 uppercase tracking-wide">
-                      Members — Me, {selectedGroup.members.join(', ')}
+              <div className="clay p-3 flex flex-col gap-2">
+                <button type="button"
+                  onClick={() => setShowEditMembers(v => !v)}
+                  className="flex items-center justify-between w-full">
+                  <p className="text-xs font-black text-stone-500 uppercase tracking-wide">
+                    Members — Me, {selectedGroup.members.join(', ')}
+                  </p>
+                  <span className="text-xs font-black text-stone-400">{showEditMembers ? '▲' : '✏️'}</span>
+                </button>
+                {showEditMembers && (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <p className="text-[11px] font-semibold text-violet-600">
+                      💡 "Me" is always included — you don't need to add yourself.
                     </p>
-                    <span className="text-xs font-black text-stone-400">{showEditMembers ? '▲' : '✏️'}</span>
-                  </button>
-                  {showEditMembers && (
-                    <div className="flex flex-col gap-2 pt-1">
-                      <p className="text-[11px] font-semibold text-violet-600">
-                        💡 "Me" is always included — you don't need to add yourself.
-                      </p>
-                      {selectedGroup.members.map(m => (
-                        <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
-                          <span className="font-bold text-stone-700">{m}</span>
-                          <button type="button"
-                            onClick={() => removeMemberFromGroup(m)}
-                            className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                      <div className="flex gap-2">
-                        <input type="text" value={addMemberInput}
-                          onChange={e => setAddMemberInput(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && addMemberToExistingGroup()}
-                          placeholder="Add member name"
-                          className="clay flex-1 px-3 py-2 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 text-sm"
-                        />
-                        <button type="button" onClick={addMemberToExistingGroup}
-                          disabled={!addMemberInput.trim()}
-                          className="clay-btn clay-purple clay px-3 py-2 font-black text-violet-900 rounded-[10px] text-sm disabled:opacity-40">
-                          +
+                    {selectedGroup.members.map(m => (
+                      <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
+                        <span className="font-bold text-stone-700">{m}</span>
+                        <button type="button"
+                          onClick={() => removeMemberFromGroup(m)}
+                          className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">
+                          Remove
                         </button>
                       </div>
+                    ))}
+                    <div className="flex gap-2">
+                      <input type="text" value={addMemberInput}
+                        onChange={e => setAddMemberInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addMemberToExistingGroup()}
+                        placeholder="Add member name"
+                        className="clay flex-1 px-3 py-2 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 text-sm"
+                      />
+                      <button type="button" onClick={addMemberToExistingGroup}
+                        disabled={!addMemberInput.trim()}
+                        className="clay-btn clay-purple clay px-3 py-2 font-black text-violet-900 rounded-[10px] text-sm disabled:opacity-40">
+                        +
+                      </button>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
 
               {/* Entries */}
               {selectedGroup.entries.length > 0 && (
@@ -344,13 +412,11 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                         <span className="font-black text-stone-800">{e.description}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="font-black text-stone-700">{fmt(e.totalAmount)}</span>
-                          {!selectedGroup.settled && (
-                            <button type="button"
-                              onClick={() => handleDeleteEntry(selectedGroup.id, e.id)}
-                              className="clay-btn text-rose-400 text-xs px-1.5 py-1 rounded-[6px]">
-                              ✕
-                            </button>
-                          )}
+                          <button type="button"
+                            onClick={() => handleDeleteEntry(selectedGroup.id, e.id)}
+                            className="clay-btn text-rose-400 text-xs px-1.5 py-1 rounded-[6px]">
+                            ✕
+                          </button>
                         </div>
                       </div>
                       <p className="text-xs font-semibold text-stone-400">
@@ -370,22 +436,18 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 </p>
               )}
 
-              {!selectedGroup.settled ? (
-                <>
-                  <button type="button" onClick={() => openNewEntry(selectedGroup)}
-                    className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px]">
-                    ➕ Add Expense
-                  </button>
-                  <button type="button" onClick={() => handleSettle(selectedGroup.id)}
-                    className="clay-btn clay-green clay py-3 font-black text-emerald-900 text-center rounded-[14px]">
-                    ✓ Mark as Settled
-                  </button>
-                </>
-              ) : (
-                <div className="clay p-3 text-center rounded-[14px]">
-                  <p className="text-sm font-black text-emerald-700">✓ This group is settled</p>
-                </div>
-              )}
+              <button type="button" onClick={() => openNewEntry(selectedGroup)}
+                className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px]">
+                ➕ Add Expense
+              </button>
+              <button type="button" onClick={() => handleSettle(selectedGroup.id)}
+                className="clay-btn clay-green clay py-3 font-black text-emerald-900 text-center rounded-[14px]">
+                ✓ Mark as Settled
+              </button>
+              <button type="button" onClick={() => handleDeleteGroup(selectedGroup.id)}
+                className="clay-btn clay-red clay py-3 font-black text-rose-900 text-center rounded-[14px]">
+                🗑️ Delete Group
+              </button>
             </div>
           );
         })()}
