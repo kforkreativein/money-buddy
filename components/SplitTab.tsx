@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { SplitGroup } from '@/lib/types';
+import { SplitGroup, Wallet, Category } from '@/lib/types';
 import {
   getSplitGroups, addSplitGroup, addSplitEntry, deleteSplitEntry,
   settleGroup, calcBalances, groupNetTotal, updateSplitGroup, deleteSplitGroup,
 } from '@/lib/splits';
 import { addTransaction } from '@/lib/storage';
 import { getWallets } from '@/lib/wallets';
+import { getCategories } from '@/lib/categories';
 
 interface Props {
   onClose: () => void;
@@ -24,6 +25,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [view, setView] = useState<View>(initialGroupId ? 'detail' : 'list');
   const [groups, setGroups] = useState<SplitGroup[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialGroupId ?? null);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // new-group form
   const [groupName, setGroupName] = useState('');
@@ -44,9 +47,17 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [entryPaidBy, setEntryPaidBy] = useState('me');
   const [entrySplitAmong, setEntrySplitAmong] = useState<string[]>([]);
   const [entryDate, setEntryDate] = useState(today());
+  const [entryWalletId, setEntryWalletId] = useState('');
+  const [entryCategoryId, setEntryCategoryId] = useState('');
 
   const reload = () => setGroups(getSplitGroups());
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    const w = getWallets();
+    setWallets(w);
+    setEntryWalletId(w[0]?.id ?? '');
+    setCategories(getCategories());
+  }, []);
 
   const selectedGroup = groups.find(g => g.id === selectedId) ?? null;
   const activeGroups = groups.filter(g => !g.settled);
@@ -118,6 +129,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     setEntryDesc('');
     setEntryAmount('');
     setEntryDate(today());
+    setEntryWalletId(wallets[0]?.id ?? '');
+    setEntryCategoryId('');
     setView('new-entry');
   }
 
@@ -129,9 +142,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
     let linkedTransactionId: string | undefined;
     if (entryPaidBy === 'me') {
-      const wallets = getWallets();
       const txnId = crypto.randomUUID();
-      // Record only the user's share, not the full bill
       const myShare = amount / entrySplitAmong.length;
       addTransaction({
         id: txnId,
@@ -139,7 +150,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
         amount: myShare,
         description: `✂️ ${group.name}`,
         paymentMode: 'cash',
-        walletId: wallets[0]?.id,
+        walletId: entryWalletId || wallets[0]?.id,
+        categoryId: entryCategoryId || undefined,
         date: entryDate,
         createdAt: Date.now(),
       });
@@ -273,9 +285,9 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
         {/* ── DETAIL VIEW ── */}
         {view === 'detail' && selectedGroup && (() => {
-          // Settled: show only net expense summary
+          // Settled: show only net expense
           if (selectedGroup.settled) {
-            const myTotal = selectedGroup.entries
+            const myNetExpense = selectedGroup.entries
               .filter(e => e.splitAmong.includes('me'))
               .reduce((sum, e) => sum + e.totalAmount / e.splitAmong.length, 0);
             return (
@@ -283,8 +295,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 <div className="clay-green clay p-4 rounded-[16px] flex flex-col items-center gap-1 text-center">
                   <span className="text-2xl">✓</span>
                   <p className="font-black text-emerald-800 text-base">Settled</p>
-                  <p className="text-xs font-semibold text-emerald-700">Your total share in this group</p>
-                  <p className="font-black text-emerald-900 text-2xl">{fmt(myTotal)}</p>
+                  <p className="text-xs font-semibold text-emerald-700">Your net expense in this group</p>
+                  <p className="font-black text-emerald-900 text-2xl">{fmt(myNetExpense)}</p>
                 </div>
                 <button type="button" onClick={() => handleDeleteGroup(selectedGroup.id)}
                   className="clay-btn clay-red clay py-3 font-black text-rose-900 text-center rounded-[14px]">
@@ -294,7 +306,12 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             );
           }
 
+          // Active: full detail
           const balances = calcBalances(selectedGroup);
+          const myTotalPaid = selectedGroup.entries
+            .filter(e => e.paidBy === 'me')
+            .reduce((sum, e) => sum + e.totalAmount, 0);
+
           return (
             <div className="flex flex-col gap-3">
               {/* Rename group */}
@@ -340,6 +357,14 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 <span>📌 Pin to home screen</span>
                 <span className="text-xs font-black">{selectedGroup.pinned ? 'PINNED' : 'OFF'}</span>
               </button>
+
+              {/* My total paid out */}
+              {myTotalPaid > 0 && (
+                <div className="clay p-3 flex items-center justify-between rounded-[12px]">
+                  <span className="text-xs font-black text-stone-500 uppercase tracking-wide">You paid out</span>
+                  <span className="font-black text-stone-800">{fmt(myTotalPaid)}</span>
+                </div>
+              )}
 
               {/* Per-person balances */}
               <div className="clay p-3 flex flex-col gap-2">
@@ -422,7 +447,6 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                       <p className="text-xs font-semibold text-stone-400">
                         {e.paidBy === 'me' ? 'You paid' : `${e.paidBy} paid`}
                         {' · '}split {e.splitAmong.length} ways
-                        {' · '}your share {fmt(e.totalAmount / e.splitAmong.length)}
                       </p>
                       <p className="text-[10px] font-semibold text-stone-300">{e.date}</p>
                     </div>
@@ -562,6 +586,52 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 </p>
               )}
             </div>
+
+            {/* Wallet picker — only shown when I'm paying (expense gets recorded) */}
+            {entryPaidBy === 'me' && wallets.length > 0 && (
+              <div className="clay p-3 flex flex-col gap-2">
+                <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Wallet</p>
+                <div className="flex flex-wrap gap-2">
+                  {wallets.map(w => (
+                    <button key={w.id} type="button" onClick={() => setEntryWalletId(w.id)}
+                      className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
+                        entryWalletId === w.id
+                          ? 'clay-blue text-blue-900'
+                          : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                      }`}>
+                      {w.emoji} {w.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Category picker — only shown when I'm paying and categories exist */}
+            {entryPaidBy === 'me' && categories.length > 0 && (
+              <div className="clay p-3 flex flex-col gap-2">
+                <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Category (optional)</p>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setEntryCategoryId('')}
+                    className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
+                      !entryCategoryId
+                        ? 'clay-amber text-amber-900'
+                        : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                    }`}>
+                    None
+                  </button>
+                  {categories.map(c => (
+                    <button key={c.id} type="button" onClick={() => setEntryCategoryId(c.id)}
+                      className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
+                        entryCategoryId === c.id
+                          ? 'clay-amber text-amber-900'
+                          : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                      }`}>
+                      {c.emoji} {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="clay p-3 flex flex-col gap-2">
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Date</p>
