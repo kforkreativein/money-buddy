@@ -15,7 +15,7 @@ interface Props {
   initialGroupId?: string;
 }
 
-type View = 'list' | 'detail' | 'new-group' | 'new-entry';
+type View = 'list' | 'detail' | 'new-group' | 'new-entry' | 'settle';
 
 const fmt = (n: number) =>
   `₹${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -33,7 +33,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [memberInput, setMemberInput] = useState('');
   const [membersList, setMembersList] = useState<string[]>([]);
 
-  // edit-members inline (in detail view)
+  // edit-members inline
   const [showEditMembers, setShowEditMembers] = useState(false);
   const [addMemberInput, setAddMemberInput] = useState('');
 
@@ -50,12 +50,21 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [entryWalletId, setEntryWalletId] = useState('');
   const [entryCategoryId, setEntryCategoryId] = useState('');
 
+  // settle-debt form
+  const [settlePerson, setSettlePerson] = useState('');
+  const [settleAmount, setSettleAmount] = useState('');
+  // 'receive' = they paid me back; 'pay' = I paid them
+  const [settleDir, setSettleDir] = useState<'receive' | 'pay'>('receive');
+  const [settleWalletId, setSettleWalletId] = useState('');
+  const [settleDate, setSettleDate] = useState(today());
+
   const reload = () => setGroups(getSplitGroups());
   useEffect(() => {
     reload();
     const w = getWallets();
     setWallets(w);
     setEntryWalletId(w[0]?.id ?? '');
+    setSettleWalletId(w[0]?.id ?? '');
     setCategories(getCategories());
   }, []);
 
@@ -143,11 +152,11 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     let linkedTransactionId: string | undefined;
     if (entryPaidBy === 'me') {
       const txnId = crypto.randomUUID();
-      const myShare = amount / entrySplitAmong.length;
+      // Record the FULL bill from my wallet — I actually paid this amount out
       addTransaction({
         id: txnId,
         type: 'expense',
-        amount: myShare,
+        amount,
         description: `✂️ ${group.name}`,
         paymentMode: 'cash',
         walletId: entryWalletId || wallets[0]?.id,
@@ -171,7 +180,79 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     setView('detail');
   }
 
-  function handleSettle(groupId: string) {
+  function openSettle(person: string, balance: number) {
+    setSettlePerson(person);
+    setSettleAmount(String(Math.abs(balance)));
+    // balance > 0: they owe me → default "they paid me"
+    // balance < 0: I owe them → default "I paid them"
+    setSettleDir(balance > 0 ? 'receive' : 'pay');
+    setSettleWalletId(wallets[0]?.id ?? '');
+    setSettleDate(today());
+    setView('settle');
+  }
+
+  function handleConfirmSettle() {
+    const amount = Number(settleAmount);
+    if (!amount || !selectedId || !settlePerson) return;
+    const group = groups.find(g => g.id === selectedId);
+    if (!group) return;
+
+    const txnId = crypto.randomUUID();
+
+    if (settleDir === 'receive') {
+      // They paid me → income to my wallet
+      // Balance: their debt to me decreases
+      // SplitEntry: paidBy = them, splitAmong = ['me']
+      addTransaction({
+        id: txnId,
+        type: 'income',
+        amount,
+        description: `✂️ ${group.name}`,
+        paymentMode: 'cash',
+        walletId: settleWalletId || wallets[0]?.id,
+        date: settleDate,
+        createdAt: Date.now(),
+      });
+      addSplitEntry(selectedId, {
+        description: `${settlePerson} paid you`,
+        totalAmount: amount,
+        paidBy: settlePerson,
+        splitAmong: ['me'],
+        date: settleDate,
+        linkedTransactionId: txnId,
+        isSettlement: true,
+      });
+    } else {
+      // I paid them → expense from my wallet
+      // Balance: my debt to them decreases
+      // SplitEntry: paidBy = 'me', splitAmong = [them]
+      addTransaction({
+        id: txnId,
+        type: 'expense',
+        amount,
+        description: `✂️ ${group.name}`,
+        paymentMode: 'cash',
+        walletId: settleWalletId || wallets[0]?.id,
+        date: settleDate,
+        createdAt: Date.now(),
+      });
+      addSplitEntry(selectedId, {
+        description: `You paid ${settlePerson}`,
+        totalAmount: amount,
+        paidBy: 'me',
+        splitAmong: [settlePerson],
+        date: settleDate,
+        linkedTransactionId: txnId,
+        isSettlement: true,
+      });
+    }
+
+    onExpenseAdded();
+    reload();
+    setView('detail');
+  }
+
+  function handleMarkSettled(groupId: string) {
     if (!confirm('Mark this group as settled? It will move to Past Groups.')) return;
     settleGroup(groupId);
     reload();
@@ -190,7 +271,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   }
 
   function goBack() {
-    if (view === 'new-entry') setView('detail');
+    if (view === 'settle' || view === 'new-entry') setView('detail');
     else { setShowEditMembers(false); setView('list'); }
   }
 
@@ -217,6 +298,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             {view === 'detail' && (selectedGroup?.name ?? 'Group')}
             {view === 'new-group' && '➕ New Group'}
             {view === 'new-entry' && '➕ Add Expense'}
+            {view === 'settle' && `💸 Settle with ${settlePerson}`}
           </h2>
           <button type="button" onClick={onClose}
             className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black shrink-0">✕</button>
@@ -230,7 +312,6 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 No groups yet.<br />Create one to start splitting!
               </p>
             )}
-
             {activeGroups.length > 0 && (
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Active</p>
@@ -259,7 +340,6 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 })}
               </div>
             )}
-
             {pastGroups.length > 0 && (
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Past Groups</p>
@@ -275,7 +355,6 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 ))}
               </div>
             )}
-
             <button type="button" onClick={() => setView('new-group')}
               className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px]">
               ➕ New Group
@@ -288,7 +367,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
           // Settled: show only net expense
           if (selectedGroup.settled) {
             const myNetExpense = selectedGroup.entries
-              .filter(e => e.splitAmong.includes('me'))
+              .filter(e => !e.isSettlement && e.splitAmong.includes('me'))
               .reduce((sum, e) => sum + e.totalAmount / e.splitAmong.length, 0);
             return (
               <div className="flex flex-col gap-3">
@@ -306,35 +385,27 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             );
           }
 
-          // Active: full detail
           const balances = calcBalances(selectedGroup);
           const myTotalPaid = selectedGroup.entries
-            .filter(e => e.paidBy === 'me')
+            .filter(e => !e.isSettlement && e.paidBy === 'me')
             .reduce((sum, e) => sum + e.totalAmount, 0);
 
           return (
             <div className="flex flex-col gap-3">
-              {/* Rename group */}
+              {/* Rename */}
               <div className="clay p-3 flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Group name</p>
                 {renaming ? (
                   <div className="flex gap-2">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={renameValue}
+                    <input autoFocus type="text" value={renameValue}
                       onChange={e => setRenameValue(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
                       className="clay flex-1 px-3 py-2 font-bold text-stone-700 bg-transparent outline-none text-sm"
                     />
                     <button type="button" onClick={saveRename}
-                      className="clay-btn clay-green clay px-3 py-2 font-black text-emerald-900 rounded-[10px] text-sm">
-                      Save
-                    </button>
+                      className="clay-btn clay-green clay px-3 py-2 font-black text-emerald-900 rounded-[10px] text-sm">Save</button>
                     <button type="button" onClick={() => setRenaming(false)}
-                      className="clay-btn px-3 py-2 font-black text-stone-500 rounded-[10px] text-sm bg-stone-100 border border-stone-200">
-                      ✕
-                    </button>
+                      className="clay-btn px-3 py-2 font-black text-stone-500 rounded-[10px] text-sm bg-stone-100 border border-stone-200">✕</button>
                   </div>
                 ) : (
                   <button type="button"
@@ -350,36 +421,42 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               <button type="button"
                 onClick={() => togglePin(selectedGroup.id, !!selectedGroup.pinned)}
                 className={`clay-btn flex items-center justify-between px-4 py-2.5 rounded-[12px] font-bold text-sm ${
-                  selectedGroup.pinned
-                    ? 'clay-amber text-amber-900'
-                    : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                  selectedGroup.pinned ? 'clay-amber text-amber-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                 }`}>
                 <span>📌 Pin to home screen</span>
                 <span className="text-xs font-black">{selectedGroup.pinned ? 'PINNED' : 'OFF'}</span>
               </button>
 
-              {/* My total paid out */}
+              {/* You paid out stat */}
               {myTotalPaid > 0 && (
                 <div className="clay p-3 flex items-center justify-between rounded-[12px]">
-                  <span className="text-xs font-black text-stone-500 uppercase tracking-wide">You paid out</span>
-                  <span className="font-black text-stone-800">{fmt(myTotalPaid)}</span>
+                  <span className="text-xs font-black text-stone-500 uppercase tracking-wide">You paid out (bills)</span>
+                  <span className="font-black text-rose-600">-{fmt(myTotalPaid)}</span>
                 </div>
               )}
 
-              {/* Per-person balances */}
+              {/* Per-person balances with Settle button */}
               <div className="clay p-3 flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Who owes who</p>
                 {selectedGroup.members.map(m => {
                   const b = balances[m] ?? 0;
                   return (
-                    <div key={m} className="flex items-center justify-between py-0.5">
-                      <span className="font-bold text-stone-700">{m}</span>
-                      {b === 0
-                        ? <span className="text-xs font-bold text-stone-400">All even ✓</span>
-                        : b > 0
-                        ? <span className="text-xs font-black text-emerald-600">owes you {fmt(b)}</span>
-                        : <span className="text-xs font-black text-rose-500">you owe {fmt(b)}</span>
-                      }
+                    <div key={m} className="flex items-center justify-between py-0.5 gap-2">
+                      <span className="font-bold text-stone-700 min-w-0 truncate">{m}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {b === 0
+                          ? <span className="text-xs font-bold text-stone-400">All even ✓</span>
+                          : b > 0
+                          ? <span className="text-xs font-black text-emerald-600">owes you {fmt(b)}</span>
+                          : <span className="text-xs font-black text-rose-500">you owe {fmt(b)}</span>
+                        }
+                        {b !== 0 && (
+                          <button type="button" onClick={() => openSettle(m, b)}
+                            className="clay-btn clay-blue text-blue-900 text-xs font-black px-2.5 py-1 rounded-[8px]">
+                            💸 Settle
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -387,8 +464,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
               {/* Edit members */}
               <div className="clay p-3 flex flex-col gap-2">
-                <button type="button"
-                  onClick={() => setShowEditMembers(v => !v)}
+                <button type="button" onClick={() => setShowEditMembers(v => !v)}
                   className="flex items-center justify-between w-full">
                   <p className="text-xs font-black text-stone-500 uppercase tracking-wide">
                     Members — Me, {selectedGroup.members.join(', ')}
@@ -403,11 +479,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                     {selectedGroup.members.map(m => (
                       <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
                         <span className="font-bold text-stone-700">{m}</span>
-                        <button type="button"
-                          onClick={() => removeMemberFromGroup(m)}
-                          className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">
-                          Remove
-                        </button>
+                        <button type="button" onClick={() => removeMemberFromGroup(m)}
+                          className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">Remove</button>
                       </div>
                     ))}
                     <div className="flex gap-2">
@@ -419,9 +492,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                       />
                       <button type="button" onClick={addMemberToExistingGroup}
                         disabled={!addMemberInput.trim()}
-                        className="clay-btn clay-purple clay px-3 py-2 font-black text-violet-900 rounded-[10px] text-sm disabled:opacity-40">
-                        +
-                      </button>
+                        className="clay-btn clay-purple clay px-3 py-2 font-black text-violet-900 rounded-[10px] text-sm disabled:opacity-40">+</button>
                     </div>
                   </div>
                 )}
@@ -430,24 +501,30 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               {/* Entries */}
               {selectedGroup.entries.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Expenses</p>
+                  <p className="text-xs font-black text-stone-400 uppercase tracking-wider">History</p>
                   {[...selectedGroup.entries].reverse().map(e => (
-                    <div key={e.id} className="clay p-3 flex flex-col gap-1">
+                    <div key={e.id}
+                      className={`clay p-3 flex flex-col gap-1 ${e.isSettlement ? 'border border-teal-100' : ''}`}>
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-black text-stone-800">{e.description}</span>
+                        <span className="font-black text-stone-800 text-sm">
+                          {e.isSettlement ? '💸 ' : ''}{e.description}
+                        </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="font-black text-stone-700">{fmt(e.totalAmount)}</span>
-                          <button type="button"
-                            onClick={() => handleDeleteEntry(selectedGroup.id, e.id)}
-                            className="clay-btn text-rose-400 text-xs px-1.5 py-1 rounded-[6px]">
-                            ✕
-                          </button>
+                          <span className={`font-black text-sm ${e.isSettlement ? (e.paidBy === 'me' ? 'text-rose-500' : 'text-emerald-600') : 'text-stone-700'}`}>
+                            {e.isSettlement && (e.paidBy === 'me' ? '-' : '+')}
+                            {fmt(e.totalAmount)}
+                          </span>
+                          <button type="button" onClick={() => handleDeleteEntry(selectedGroup.id, e.id)}
+                            className="clay-btn text-rose-400 text-xs px-1.5 py-1 rounded-[6px]">✕</button>
                         </div>
                       </div>
-                      <p className="text-xs font-semibold text-stone-400">
-                        {e.paidBy === 'me' ? 'You paid' : `${e.paidBy} paid`}
-                        {' · '}split {e.splitAmong.length} ways
-                      </p>
+                      {!e.isSettlement && (
+                        <p className="text-xs font-semibold text-stone-400">
+                          {e.paidBy === 'me' ? 'You paid' : `${e.paidBy} paid`}
+                          {' · '}split {e.splitAmong.length} ways
+                          {' · '}each {fmt(e.totalAmount / e.splitAmong.length)}
+                        </p>
+                      )}
                       <p className="text-[10px] font-semibold text-stone-300">{e.date}</p>
                     </div>
                   ))}
@@ -464,7 +541,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px]">
                 ➕ Add Expense
               </button>
-              <button type="button" onClick={() => handleSettle(selectedGroup.id)}
+              <button type="button" onClick={() => handleMarkSettled(selectedGroup.id)}
                 className="clay-btn clay-green clay py-3 font-black text-emerald-900 text-center rounded-[14px]">
                 ✓ Mark as Settled
               </button>
@@ -475,6 +552,93 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             </div>
           );
         })()}
+
+        {/* ── SETTLE DEBT VIEW ── */}
+        {view === 'settle' && selectedGroup && (
+          <div className="flex flex-col gap-3">
+            {(() => {
+              const balances = calcBalances(selectedGroup);
+              const b = balances[settlePerson] ?? 0;
+              return (
+                <div className={`clay p-3 rounded-[12px] text-center ${b > 0 ? 'clay-green' : 'clay-red'}`}>
+                  <p className="text-xs font-semibold text-stone-600">Current balance</p>
+                  <p className="font-black text-stone-800">
+                    {b > 0
+                      ? `${settlePerson} owes you ${fmt(b)}`
+                      : `You owe ${settlePerson} ${fmt(b)}`
+                    }
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Direction */}
+            <div className="clay p-3 flex flex-col gap-2">
+              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">What happened?</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setSettleDir('receive')}
+                  className={`clay-btn flex-1 py-2.5 rounded-[10px] font-bold text-sm ${
+                    settleDir === 'receive' ? 'clay-green text-emerald-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                  }`}>
+                  💰 {settlePerson} paid me
+                </button>
+                <button type="button" onClick={() => setSettleDir('pay')}
+                  className={`clay-btn flex-1 py-2.5 rounded-[10px] font-bold text-sm ${
+                    settleDir === 'pay' ? 'clay-red text-rose-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                  }`}>
+                  💸 I paid {settlePerson}
+                </button>
+              </div>
+            </div>
+
+            {/* Amount */}
+            <div className="clay p-3 flex flex-col gap-2">
+              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Amount</p>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-stone-400 text-lg">₹</span>
+                <input type="text" inputMode="decimal" value={settleAmount}
+                  onChange={e => setSettleAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="0"
+                  className="clay flex-1 px-3 py-2.5 font-black text-stone-700 text-xl bg-transparent outline-none placeholder:text-stone-400"
+                />
+              </div>
+            </div>
+
+            {/* Wallet */}
+            {wallets.length > 0 && (
+              <div className="clay p-3 flex flex-col gap-2">
+                <p className="text-xs font-black text-stone-500 uppercase tracking-wide">
+                  {settleDir === 'receive' ? 'Received into wallet' : 'Paid from wallet'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {wallets.map(w => (
+                    <button key={w.id} type="button" onClick={() => setSettleWalletId(w.id)}
+                      className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
+                        settleWalletId === w.id ? 'clay-blue text-blue-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                      }`}>
+                      {w.emoji} {w.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Date */}
+            <div className="clay p-3 flex flex-col gap-2">
+              <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Date</p>
+              <input type="date" value={settleDate}
+                onChange={e => setSettleDate(e.target.value)}
+                className="clay px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none w-full"
+              />
+            </div>
+
+            <button type="button" onClick={handleConfirmSettle}
+              disabled={!settleAmount || Number(settleAmount) === 0}
+              className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px] disabled:opacity-40">
+              ✓ Record Settlement
+            </button>
+          </div>
+        )}
 
         {/* ── NEW GROUP VIEW ── */}
         {view === 'new-group' && (
@@ -487,7 +651,6 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 className="clay px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none placeholder:text-stone-400 w-full"
               />
             </div>
-
             <div className="clay p-3 flex flex-col gap-2">
               <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Other members</p>
               <p className="text-[11px] font-semibold text-violet-600">
@@ -496,11 +659,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               {membersList.map(m => (
                 <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
                   <span className="font-bold text-stone-700">{m}</span>
-                  <button type="button"
-                    onClick={() => setMembersList(prev => prev.filter(x => x !== m))}
-                    className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">
-                    Remove
-                  </button>
+                  <button type="button" onClick={() => setMembersList(prev => prev.filter(x => x !== m))}
+                    className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">Remove</button>
                 </div>
               ))}
               <div className="flex gap-2">
@@ -512,12 +672,9 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 />
                 <button type="button" onClick={addMemberToNewGroup}
                   disabled={!memberInput.trim()}
-                  className="clay-btn clay-purple clay px-4 py-2 font-black text-violet-900 rounded-[10px] disabled:opacity-40">
-                  +
-                </button>
+                  className="clay-btn clay-purple clay px-4 py-2 font-black text-violet-900 rounded-[10px] disabled:opacity-40">+</button>
               </div>
             </div>
-
             <button type="button" onClick={handleCreateGroup}
               disabled={!groupName.trim() || membersList.length === 0}
               className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px] disabled:opacity-40">
@@ -556,9 +713,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 {['me', ...selectedGroup.members].map(name => (
                   <button key={name} type="button" onClick={() => setEntryPaidBy(name)}
                     className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
-                      entryPaidBy === name
-                        ? 'clay-purple text-violet-900'
-                        : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                      entryPaidBy === name ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                     }`}>
                     {name === 'me' ? 'Me' : name}
                   </button>
@@ -572,9 +727,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 {['me', ...selectedGroup.members].map(name => (
                   <button key={name} type="button" onClick={() => toggleSplitAmong(name)}
                     className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
-                      entrySplitAmong.includes(name)
-                        ? 'clay-green text-emerald-900'
-                        : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                      entrySplitAmong.includes(name) ? 'clay-green text-emerald-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                     }`}>
                     {name === 'me' ? 'Me' : name}
                   </button>
@@ -587,17 +740,15 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               )}
             </div>
 
-            {/* Wallet picker — only shown when I'm paying (expense gets recorded) */}
+            {/* Wallet — only when I paid */}
             {entryPaidBy === 'me' && wallets.length > 0 && (
               <div className="clay p-3 flex flex-col gap-2">
-                <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Wallet</p>
+                <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Paid from wallet</p>
                 <div className="flex flex-wrap gap-2">
                   {wallets.map(w => (
                     <button key={w.id} type="button" onClick={() => setEntryWalletId(w.id)}
                       className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
-                        entryWalletId === w.id
-                          ? 'clay-blue text-blue-900'
-                          : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                        entryWalletId === w.id ? 'clay-blue text-blue-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                       }`}>
                       {w.emoji} {w.name}
                     </button>
@@ -606,25 +757,21 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               </div>
             )}
 
-            {/* Category picker — only shown when I'm paying and categories exist */}
+            {/* Category — only when I paid */}
             {entryPaidBy === 'me' && categories.length > 0 && (
               <div className="clay p-3 flex flex-col gap-2">
                 <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Category (optional)</p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => setEntryCategoryId('')}
                     className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
-                      !entryCategoryId
-                        ? 'clay-amber text-amber-900'
-                        : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                      !entryCategoryId ? 'clay-amber text-amber-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                     }`}>
                     None
                   </button>
                   {categories.map(c => (
                     <button key={c.id} type="button" onClick={() => setEntryCategoryId(c.id)}
                       className={`clay-btn px-3 py-2 rounded-[10px] font-bold text-sm ${
-                        entryCategoryId === c.id
-                          ? 'clay-amber text-amber-900'
-                          : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                        entryCategoryId === c.id ? 'clay-amber text-amber-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
                       }`}>
                       {c.emoji} {c.name}
                     </button>
@@ -641,10 +788,10 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               />
             </div>
 
-            {entryPaidBy === 'me' && entryAmount && entrySplitAmong.length > 0 && (
+            {entryPaidBy === 'me' && entryAmount && (
               <div className="clay-amber clay rounded-[12px] px-3 py-2.5">
                 <p className="text-xs font-bold text-amber-800">
-                  💡 Your share (₹{(Number(entryAmount) / entrySplitAmong.length).toLocaleString('en-IN', { maximumFractionDigits: 2 })}) will be recorded as an expense in your tracker — not the full bill.
+                  💡 The full ₹{Number(entryAmount).toLocaleString('en-IN')} will be recorded as an expense from your wallet — use "💸 Settle" in the group when others pay you back.
                 </p>
               </div>
             )}

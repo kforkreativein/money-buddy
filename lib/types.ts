@@ -78,6 +78,7 @@ export interface SplitEntry {
   date: string;
   createdAt: number;
   linkedTransactionId?: string;
+  isSettlement?: boolean;
 }
 
 export interface SplitGroup {
