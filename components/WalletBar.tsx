@@ -272,6 +272,15 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
             <input type="text" value={nameDraft} onChange={e => setNameDraft(e.target.value)} placeholder="Wallet name"
               className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none min-w-0" />
           </div>
+          <button type="button" onClick={() => setCcEditDraft(v => !v)}
+            className={`clay-btn flex items-center justify-between px-3 py-2.5 rounded-[12px] font-bold text-sm min-h-[44px] transition-all ${
+              ccEditDraft ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+            }`}>
+            <span>💳 This is a credit card</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-black ${ccEditDraft ? 'bg-violet-200 text-violet-800' : 'bg-stone-200 text-stone-400'}`}>
+              {ccEditDraft ? 'ON' : 'OFF'}
+            </span>
+          </button>
           {!ccEditDraft && (
             <div className="flex gap-2 items-center">
               <span className="text-xs text-stone-400 font-bold whitespace-nowrap">Alert below ₹</span>
