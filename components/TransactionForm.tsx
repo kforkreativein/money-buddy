@@ -165,8 +165,8 @@ export default function TransactionForm({ initial, onSave, onCancel, onRecurring
       <textarea
         value={description} onChange={e => setDescription(e.target.value)}
         placeholder="What was this for? (optional) 📝"
-        rows={2}
-        className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none resize-none placeholder:text-stone-400"
+        rows={3}
+        className="clay w-full px-4 py-3 text-base font-semibold text-stone-700 bg-transparent outline-none resize-none placeholder:text-stone-400 min-h-[80px]"
       />
 
       <div className="flex flex-col gap-2">

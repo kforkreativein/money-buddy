@@ -42,6 +42,7 @@ export default function Home() {
   const [walletFilter, setWalletFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [recurringRefresh, setRecurringRefresh] = useState(0);
+  const [recurringAdded, setRecurringAdded] = useState(0);
   const [search, setSearch] = useState('');
   const [showSplitTab, setShowSplitTab] = useState(false);
   const [splitGroupId, setSplitGroupId] = useState<string | undefined>(undefined);
@@ -70,7 +71,8 @@ export default function Home() {
 
   const loadAppData = useCallback(() => {
     registerServiceWorker();
-    applyDueRecurring();
+    const added = applyDueRecurring();
+    if (added > 0) setRecurringAdded(added);
     refresh();
     reloadCategories();
     reloadTransfers();
@@ -170,12 +172,25 @@ export default function Home() {
         <RecoveryBanner
           currentCount={transactions.length}
           onRestored={() => {
-            applyDueRecurring();
+            const added = applyDueRecurring();
+            if (added > 0) setRecurringAdded(added);
             refresh();
             reloadCategories();
             reloadTransfers();
           }}
         />
+
+        {recurringAdded > 0 && (
+          <div className="clay clay-amber animate-pop-in flex items-center justify-between px-4 py-3 gap-2">
+            <span className="font-black text-amber-900 text-sm">
+              🔄 {recurringAdded} recurring {recurringAdded === 1 ? 'entry' : 'entries'} auto-added!
+            </span>
+            <button type="button" onClick={() => setRecurringAdded(0)}
+              className="clay-btn text-amber-700 font-black text-xs px-2 py-1 rounded-[8px] bg-amber-100">
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* 1. Add entry */}
         <button

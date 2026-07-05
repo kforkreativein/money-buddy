@@ -102,7 +102,7 @@ export default function TransactionList({
     .filter(t => t.id !== pendingDelete?.txn.id)
     .filter(t => !walletFilter || (t.walletId ?? legacyWalletId(t.paymentMode, t.bank)) === walletFilter)
     .filter(matchesCategory)
-    .sort((a, b) => b.createdAt - a.createdAt);
+    .sort((a, b) => b.date !== a.date ? b.date.localeCompare(a.date) : b.createdAt - a.createdAt);
 
   const q = search.trim().toLowerCase();
   const filtered = q

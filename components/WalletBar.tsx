@@ -236,7 +236,7 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
                         {w.net >= 0 ? '+' : '-'}{fmt(Math.abs(w.net))}
                       </p>
                       {w.openingBalance != null && (
-                        <p className="text-[10px] text-stone-400 font-semibold">Opening: {fmt(w.openingBalance)}</p>
+                        <p className={`text-[10px] font-semibold ${selectedWallet === w.id ? 'text-violet-700' : 'text-stone-400'}`}>Opening: {fmt(w.openingBalance)}</p>
                       )}
                     </>
                   )}
