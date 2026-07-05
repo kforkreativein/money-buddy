@@ -11,6 +11,10 @@ export interface Wallet {
   minBalance?: number;
   isCreditCard?: boolean;
   creditLimit?: number;
+  /** Day of month (1-31) the CC statement is generated */
+  statementDay?: number;
+  /** Day of month (1-31) the CC bill is due */
+  dueDay?: number;
 }
 
 export interface Category {

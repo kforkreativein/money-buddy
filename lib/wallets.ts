@@ -105,7 +105,7 @@ export function saveWallets(wallets: Wallet[]) {
   scheduleCloudSync();
 }
 
-export function updateWallet(id: string, patch: Partial<Pick<Wallet, 'name' | 'emoji' | 'openingBalance' | 'minBalance' | 'isCreditCard' | 'creditLimit'>>) {
+export function updateWallet(id: string, patch: Partial<Pick<Wallet, 'name' | 'emoji' | 'openingBalance' | 'minBalance' | 'isCreditCard' | 'creditLimit' | 'statementDay' | 'dueDay'>>) {
   const updated = getWallets().map(w => w.id === id ? { ...w, ...patch } : w);
   saveWallets(updated);
   return updated;

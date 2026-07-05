@@ -34,6 +34,8 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
   const [minBalanceDraft, setMinBalanceDraft] = useState('');
   const [ccEditDraft, setCcEditDraft] = useState(false);
   const [creditLimitDraft, setCreditLimitDraft] = useState('');
+  const [statementDayDraft, setStatementDayDraft] = useState('');
+  const [dueDayDraft, setDueDayDraft] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   // CC pay bill
   const [showPayBill, setShowPayBill] = useState<string | null>(null);
@@ -77,6 +79,8 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
     setEmojiDraft(w.emoji);
     setCcEditDraft(w.isCreditCard ?? false);
     setCreditLimitDraft(w.creditLimit != null ? String(w.creditLimit) : '');
+    setStatementDayDraft(w.statementDay != null ? String(w.statementDay) : '');
+    setDueDayDraft(w.dueDay != null ? String(w.dueDay) : '');
     // For CC, openingBalance stored as negative (existing debt); display as positive outstanding
     if (w.isCreditCard) {
       setBalanceDraft(w.openingBalance != null && w.openingBalance < 0 ? String(-w.openingBalance) : '');
@@ -92,6 +96,10 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
     const val = parseFloat(balanceDraft);
     const minVal = parseFloat(minBalanceDraft);
     const limitVal = parseInt(creditLimitDraft, 10);
+    const clampDay = (s: string) => {
+      const n = parseInt(s, 10);
+      return !isNaN(n) && n >= 1 && n <= 31 ? n : undefined;
+    };
     updateWallet(id, {
       name,
       emoji: emojiDraft || '💳',
@@ -102,6 +110,8 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
       minBalance: isNaN(minVal) || minVal <= 0 ? undefined : minVal,
       isCreditCard: ccEditDraft || undefined,
       creditLimit: ccEditDraft && !isNaN(limitVal) && limitVal > 0 ? limitVal : undefined,
+      statementDay: ccEditDraft ? clampDay(statementDayDraft) : undefined,
+      dueDay: ccEditDraft ? clampDay(dueDayDraft) : undefined,
     });
     reload();
     setEditingId(null);
@@ -272,13 +282,29 @@ export default function WalletBar({ transactions, selectedWallet, onSelectWallet
             </div>
           )}
           {ccEditDraft && (
-            <div className="flex gap-2 items-center">
-              <span className="text-xs text-stone-400 font-bold whitespace-nowrap">Limit ₹</span>
-              <input type="text" inputMode="numeric" value={creditLimitDraft}
-                onChange={e => setCreditLimitDraft(e.target.value.replace(/[^\d]/g, ''))}
-                placeholder="Credit limit"
-                className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none min-w-0" />
-            </div>
+            <>
+              <div className="flex gap-2 items-center">
+                <span className="text-xs text-stone-400 font-bold whitespace-nowrap">Limit ₹</span>
+                <input type="text" inputMode="numeric" value={creditLimitDraft}
+                  onChange={e => setCreditLimitDraft(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="Credit limit"
+                  className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none min-w-0" />
+              </div>
+              <div className="flex gap-2 items-center">
+                <span className="text-xs text-stone-400 font-bold whitespace-nowrap">Statement day</span>
+                <input type="text" inputMode="numeric" value={statementDayDraft}
+                  onChange={e => setStatementDayDraft(e.target.value.replace(/[^\d]/g, '').slice(0, 2))}
+                  placeholder="e.g. 15"
+                  className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none min-w-0" />
+              </div>
+              <div className="flex gap-2 items-center">
+                <span className="text-xs text-stone-400 font-bold whitespace-nowrap">Due day</span>
+                <input type="text" inputMode="numeric" value={dueDayDraft}
+                  onChange={e => setDueDayDraft(e.target.value.replace(/[^\d]/g, '').slice(0, 2))}
+                  placeholder="e.g. 31"
+                  className="clay flex-1 px-3 py-2.5 font-bold text-stone-700 bg-transparent outline-none min-w-0" />
+              </div>
+            </>
           )}
           <div className="flex gap-2 items-center">
             <span className="text-xs text-stone-400 font-bold whitespace-nowrap">

@@ -23,6 +23,7 @@ import ViewModeBar from '@/components/ViewModeBar';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import LowBalanceAlert from '@/components/LowBalanceAlert';
+import CreditCardReminders from '@/components/CreditCardReminders';
 import RecoveryBanner from '@/components/RecoveryBanner';
 import MoreSection from '@/components/MoreSection';
 import SplitTab from '@/components/SplitTab';
@@ -262,6 +263,9 @@ export default function Home() {
 
         {/* 5. Low balance alert */}
         <LowBalanceAlert transactions={transactions} />
+
+        {/* Credit card statement / due reminders */}
+        <CreditCardReminders transactions={transactions} />
 
         {/* Everything else tucked away */}
         <MoreSection
