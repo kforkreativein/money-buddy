@@ -175,8 +175,11 @@ export async function pullFromCloud(): Promise<boolean> {
     linkedTransactionId: r.linked_transaction_id ?? undefined,
   }));
 
-  // If the split_groups table doesn't exist yet (SQL not run), keep local splits
-  const splits: SplitGroup[] = splitRes.error
+  // Keep local splits when the split_groups table is missing (SQL not run) OR when it
+  // exists but is empty while local has groups (freshly-created table must not wipe them)
+  const keepLocalSplits =
+    splitRes.error || ((splitRes.data ?? []).length === 0 && localBeforePull.splits.length > 0);
+  const splits: SplitGroup[] = keepLocalSplits
     ? localBeforePull.splits
     : (splitRes.data ?? []).map(r => ({
         id: r.id,
@@ -218,6 +221,11 @@ export async function pullFromCloud(): Promise<boolean> {
   }
 
   writeLocal(userId, cloudData);
+
+  // Cloud split table was missing/empty — upload the local groups we kept
+  if (keepLocalSplits && splits.length > 0) {
+    scheduleCloudSync();
+  }
 
   if (setRes.data?.streak_count != null || setRes.data?.last_visit_date) {
     localStorage.setItem(
