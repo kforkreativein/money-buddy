@@ -1,3 +1,5 @@
+import { scheduleCloudSync } from './supabase/sync';
+
 const CC_KEY = 'money_buddy_credit_cards_enabled';
 const SPLIT_KEY = 'money_buddy_split_enabled';
 
@@ -8,6 +10,7 @@ export function getCreditCardsEnabled(): boolean {
 
 export function setCreditCardsEnabled(val: boolean) {
   localStorage.setItem(CC_KEY, val ? 'true' : 'false');
+  scheduleCloudSync();
 }
 
 export function getSplitEnabled(): boolean {
@@ -17,4 +20,5 @@ export function getSplitEnabled(): boolean {
 
 export function setSplitEnabled(val: boolean) {
   localStorage.setItem(SPLIT_KEY, val ? 'true' : 'false');
+  scheduleCloudSync();
 }
