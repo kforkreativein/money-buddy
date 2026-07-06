@@ -101,6 +101,12 @@
 | 58 | Personal / Business view mode | ✅ Completed | View toggle filters stats, list, charts |
 | 59 | Business profit snapshot | ✅ Completed | Business income − expense this month |
 | 60 | Daily welcome + streak | ✅ Completed | First visit each day greets you; streak badge in header |
+| 61 | Split groups cloud sync | ✅ Completed | Split groups + credit card wallet fields now sync to Supabase (split_groups table, wallet CC columns) |
+| 62 | Custom split shares | ✅ Completed | Equal (default) or Custom ₹ per person; last person auto-fills the remainder |
+| 63 | Settled group net expense | ✅ Completed | Once a group is settled, stats count only my share (wallet history unchanged) |
+| 64 | Settle-pending flow | ✅ Completed | Mark-settled asks per person: record payment or 🕊️ let it go |
+| 65 | Remove member (settle first) | ✅ Completed | Must settle balance before removal; former members grayed out, kept on old entries |
+| 66 | Split opening balances | ✅ Completed | Old pending balance per member (+100 = they owe me, -100 = I owe them); set on group create or via ✏️ next to names; counted in balances |
 | 25 | Income confetti burst | ⬜ Removed | Replaced with calmer UX (no confetti/SFX) |
 | 26 | Income happy ascending tones | ⬜ Removed | Audio effects removed |
 | 27 | Expense sad descending tones | ⬜ Removed | Audio effects removed |

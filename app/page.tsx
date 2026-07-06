@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Transaction, Category, CategoryTransfer, SplitGroup } from '@/lib/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '@/lib/storage';
-import { getSplitGroups, groupNetTotal } from '@/lib/splits';
+import { getSplitGroups, groupNetTotal, adjustForSettledSplits } from '@/lib/splits';
 import { getSplitEnabled } from '@/lib/settings';
 import { applyDueRecurring } from '@/lib/recurring';
 import { userStorageKey, restoreAuth } from '@/lib/auth';
@@ -66,6 +66,14 @@ export default function Home() {
   const viewTransactions = useMemo(
     () => filterTransactionsForView(transactions, viewMode),
     [transactions, viewMode],
+  );
+
+  // Stats view: settled split groups count as one net "my share" expense
+  // (wallet balances & the entry list keep the real money movements)
+  const statsTransactions = useMemo(
+    () => adjustForSettledSplits(viewTransactions),
+    // splitGroups in deps so stats refresh when a group gets settled
+    [viewTransactions, splitGroups],
   );
 
   const categoryFilter = viewMode === 'all' ? null : viewMode;
@@ -233,7 +241,7 @@ export default function Home() {
 
         {/* 2. Monthly stats */}
         <StatsBar
-          transactions={viewTransactions}
+          transactions={statsTransactions}
           budget={budget}
           categories={categories}
           categoryFilter={categoryFilter}

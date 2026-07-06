@@ -1,4 +1,4 @@
-import { Transaction, Wallet, Category, CategoryTransfer, RecurringRule, SavingsGoal } from '../types';
+import { Transaction, Wallet, Category, CategoryTransfer, RecurringRule, SavingsGoal, SplitGroup } from '../types';
 import { getSupabase } from './client';
 
 function getUserId(): string | null {
@@ -28,6 +28,7 @@ function writeLocal(userId: string, data: {
   categories: Category[];
   transfers: CategoryTransfer[];
   recurring: RecurringRule[];
+  splits: SplitGroup[];
   goal: SavingsGoal | null;
   budget: number;
   onboardingDone: boolean;
@@ -37,6 +38,7 @@ function writeLocal(userId: string, data: {
   localStorage.setItem(userKey('money_buddy_categories', userId), JSON.stringify(data.categories));
   localStorage.setItem(userKey('money_buddy_transfers', userId), JSON.stringify(data.transfers));
   localStorage.setItem(userKey('money_buddy_recurring', userId), JSON.stringify(data.recurring));
+  localStorage.setItem(userKey('money_buddy_splits', userId), JSON.stringify(data.splits));
   if (data.goal) {
     localStorage.setItem(userKey('money_buddy_savings_goal', userId), JSON.stringify(data.goal));
   } else {
@@ -69,6 +71,7 @@ function readLocal(userId: string) {
     categories: parse<Category[]>('money_buddy_categories', []),
     transfers: parse<CategoryTransfer[]>('money_buddy_transfers', []),
     recurring: parse<RecurringRule[]>('money_buddy_recurring', []),
+    splits: parse<SplitGroup[]>('money_buddy_splits', []),
     goal: parse<SavingsGoal | null>('money_buddy_savings_goal', null),
     budget: Number(localStorage.getItem(userKey('money_buddy_budget', userId)) || 0),
     onboardingDone: localStorage.getItem(userKey('onboarding_done', userId)) === '1',
@@ -80,6 +83,7 @@ function hasMeaningfulData(data: {
   categories: Category[];
   transfers: CategoryTransfer[];
   recurring: RecurringRule[];
+  splits: SplitGroup[];
   goal: SavingsGoal | null;
 }): boolean {
   return (
@@ -87,6 +91,7 @@ function hasMeaningfulData(data: {
     data.categories.length > 0 ||
     data.transfers.length > 0 ||
     data.recurring.length > 0 ||
+    data.splits.length > 0 ||
     data.goal != null
   );
 }
@@ -99,12 +104,13 @@ export async function pullFromCloud(): Promise<boolean> {
 
   const localBeforePull = readLocal(userId);
 
-  const [txRes, walRes, catRes, trRes, recRes, goalRes, setRes] = await Promise.all([
+  const [txRes, walRes, catRes, trRes, recRes, splitRes, goalRes, setRes] = await Promise.all([
     supabase.from('transactions').select('*').eq('user_id', userId),
     supabase.from('wallets').select('*').eq('user_id', userId),
     supabase.from('categories').select('*').eq('user_id', userId),
     supabase.from('category_transfers').select('*').eq('user_id', userId),
     supabase.from('recurring_rules').select('*').eq('user_id', userId),
+    supabase.from('split_groups').select('*').eq('user_id', userId),
     supabase.from('savings_goals').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
   ]);
@@ -131,6 +137,10 @@ export async function pullFromCloud(): Promise<boolean> {
     emoji: r.emoji,
     openingBalance: r.opening_balance != null ? Number(r.opening_balance) : undefined,
     minBalance: r.min_balance != null ? Number(r.min_balance) : undefined,
+    isCreditCard: r.is_credit_card ?? undefined,
+    creditLimit: r.credit_limit != null ? Number(r.credit_limit) : undefined,
+    statementDay: r.statement_day ?? undefined,
+    dueDay: r.due_day ?? undefined,
   }));
 
   const categories: Category[] = (catRes.data ?? []).map(r => ({
@@ -165,6 +175,22 @@ export async function pullFromCloud(): Promise<boolean> {
     linkedTransactionId: r.linked_transaction_id ?? undefined,
   }));
 
+  // If the split_groups table doesn't exist yet (SQL not run), keep local splits
+  const splits: SplitGroup[] = splitRes.error
+    ? localBeforePull.splits
+    : (splitRes.data ?? []).map(r => ({
+        id: r.id,
+        name: r.name,
+        members: r.members ?? [],
+        formerMembers: r.former_members ?? undefined,
+        openingBalances: r.opening_balances ?? undefined,
+        entries: r.entries ?? [],
+        settled: r.settled ?? false,
+        settledAt: r.settled_at ?? undefined,
+        createdAt: r.created_at,
+        pinned: r.pinned ?? undefined,
+      }));
+
   const goal = goalRes.data
     ? { target: goalRes.data.target, label: goalRes.data.label }
     : null;
@@ -175,6 +201,7 @@ export async function pullFromCloud(): Promise<boolean> {
     categories,
     transfers,
     recurring,
+    splits,
     goal,
     budget: setRes.data?.monthly_budget ?? 0,
     onboardingDone: setRes.data?.onboarding_done ?? false,
@@ -208,6 +235,12 @@ export async function pullFromCloud(): Promise<boolean> {
   }
   if (setRes.data?.notifications_enabled) {
     localStorage.setItem(userKey('money_buddy_notifications', userId), '1');
+  }
+  if (setRes.data?.credit_cards_enabled != null) {
+    localStorage.setItem('money_buddy_credit_cards_enabled', setRes.data.credit_cards_enabled ? 'true' : 'false');
+  }
+  if (setRes.data?.split_enabled != null) {
+    localStorage.setItem('money_buddy_split_enabled', setRes.data.split_enabled ? 'true' : 'false');
   }
 
   return true;
@@ -261,6 +294,10 @@ export async function pushToCloud(): Promise<boolean> {
         emoji: w.emoji,
         opening_balance: w.openingBalance ?? null,
         min_balance: w.minBalance ?? null,
+        is_credit_card: w.isCreditCard ?? false,
+        credit_limit: w.creditLimit ?? null,
+        statement_day: w.statementDay ?? null,
+        due_day: w.dueDay ?? null,
       })),
       { onConflict: 'user_id,id' },
     );
@@ -360,6 +397,39 @@ export async function pushToCloud(): Promise<boolean> {
     }
   }
 
+  // Split groups — tolerate a missing table so sync of everything else still works
+  try {
+    if (local.splits.length) {
+      const { error } = await supabase.from('split_groups').upsert(
+        local.splits.map(g => ({
+          id: g.id,
+          user_id: userId,
+          name: g.name,
+          members: g.members,
+          former_members: g.formerMembers ?? [],
+          opening_balances: g.openingBalances ?? {},
+          entries: g.entries,
+          settled: g.settled,
+          settled_at: g.settledAt ?? null,
+          created_at: g.createdAt,
+          pinned: g.pinned ?? false,
+        })),
+        { onConflict: 'user_id,id' },
+      );
+      if (error) throw error;
+    }
+    const keep = new Set(local.splits.map(g => g.id));
+    const { data, error } = await supabase.from('split_groups').select('id').eq('user_id', userId);
+    if (error) throw error;
+    const remove = (data ?? []).map(r => r.id).filter(id => !keep.has(id));
+    if (remove.length) {
+      const { error: delErr } = await supabase.from('split_groups').delete().eq('user_id', userId).in('id', remove);
+      if (delErr) throw delErr;
+    }
+  } catch (err) {
+    console.error('split_groups sync failed (run the SQL migration?)', err);
+  }
+
   if (local.goal) {
     const { error } = await supabase.from('savings_goals').upsert({
       user_id: userId,
@@ -390,6 +460,8 @@ export async function pushToCloud(): Promise<boolean> {
     })(),
     wallet_order: localStorage.getItem(userKey('money_buddy_wallet_order', userId)) ?? null,
     notifications_enabled: localStorage.getItem(userKey('money_buddy_notifications', userId)) === '1',
+    credit_cards_enabled: localStorage.getItem('money_buddy_credit_cards_enabled') === 'true',
+    split_enabled: localStorage.getItem('money_buddy_split_enabled') === 'true',
   });
   if (setErr) throw setErr;
 

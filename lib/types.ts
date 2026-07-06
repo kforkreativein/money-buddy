@@ -79,16 +79,24 @@ export interface SplitEntry {
   totalAmount: number;
   paidBy: 'me' | string;
   splitAmong: string[]; // 'me' or member names
+  /** Custom share per person (₹ amounts, keys from splitAmong). Absent = equal split. */
+  shares?: Record<string, number>;
   date: string;
   createdAt: number;
   linkedTransactionId?: string;
   isSettlement?: boolean;
+  /** Settlement recorded as "let it go" — balance cleared without any money moving */
+  isForgiven?: boolean;
 }
 
 export interface SplitGroup {
   id: string;
   name: string;
   members: string[]; // other people's names (not 'me')
+  /** Members removed from the group (kept for history display) */
+  formerMembers?: string[];
+  /** Pending opening balance per member: positive = they owe me (receivable), negative = I owe them */
+  openingBalances?: Record<string, number>;
   entries: SplitEntry[];
   settled: boolean;
   settledAt?: number;

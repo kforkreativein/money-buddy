@@ -4,6 +4,7 @@ import { SplitGroup, Wallet, Category } from '@/lib/types';
 import {
   getSplitGroups, addSplitGroup, addSplitEntry, deleteSplitEntry,
   settleGroup, calcBalances, groupNetTotal, updateSplitGroup, deleteSplitGroup,
+  shareOf, myNetShare, removeMemberToFormer, setOpeningBalance,
 } from '@/lib/splits';
 import { addTransaction } from '@/lib/storage';
 import { getWallets } from '@/lib/wallets';
@@ -15,11 +16,21 @@ interface Props {
   initialGroupId?: string;
 }
 
-type View = 'list' | 'detail' | 'new-group' | 'new-entry' | 'settle';
+type View = 'list' | 'detail' | 'new-group' | 'new-entry' | 'settle' | 'settle-pending';
 
 const fmt = (n: number) =>
   `₹${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
+
+// Keep only digits, dot and one leading +/- sign
+const sanitizeSigned = (s: string) => {
+  const sign = s.trimStart().startsWith('-') ? '-' : s.trimStart().startsWith('+') ? '+' : '';
+  return sign + s.replace(/[^\d.]/g, '');
+};
+const parseSigned = (s: string) => {
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
 
 export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Props) {
   const [view, setView] = useState<View>(initialGroupId ? 'detail' : 'list');
@@ -32,6 +43,12 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [groupName, setGroupName] = useState('');
   const [memberInput, setMemberInput] = useState('');
   const [membersList, setMembersList] = useState<string[]>([]);
+  // signed opening balance text per member: "+100" = they owe me, "-100" = I owe them
+  const [newGroupOpening, setNewGroupOpening] = useState<Record<string, string>>({});
+
+  // opening-balance inline edit (detail view)
+  const [editingOpening, setEditingOpening] = useState<string | null>(null);
+  const [openingInput, setOpeningInput] = useState('');
 
   // edit-members inline
   const [showEditMembers, setShowEditMembers] = useState(false);
@@ -49,6 +66,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [entryDate, setEntryDate] = useState(today());
   const [entryWalletId, setEntryWalletId] = useState('');
   const [entryCategoryId, setEntryCategoryId] = useState('');
+  const [splitMode, setSplitMode] = useState<'equal' | 'custom'>('equal');
+  const [customShares, setCustomShares] = useState<Record<string, string>>({});
 
   // settle-debt form
   const [settlePerson, setSettlePerson] = useState('');
@@ -57,6 +76,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   const [settleDir, setSettleDir] = useState<'receive' | 'pay'>('receive');
   const [settleWalletId, setSettleWalletId] = useState('');
   const [settleDate, setSettleDate] = useState(today());
+  // where to return after recording a settlement
+  const [settleFrom, setSettleFrom] = useState<'detail' | 'settle-pending'>('detail');
 
   const reload = () => setGroups(getSplitGroups());
   useEffect(() => {
@@ -69,24 +90,46 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   }, []);
 
   const selectedGroup = groups.find(g => g.id === selectedId) ?? null;
-  const activeGroups = groups.filter(g => !g.settled);
+  const activeGroups = groups
+    .filter(g => !g.settled)
+    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
   const pastGroups = groups.filter(g => g.settled);
 
   function openGroup(id: string) {
     setSelectedId(id);
     setShowEditMembers(false);
+    setEditingOpening(null);
     setView('detail');
   }
 
   function handleCreateGroup() {
     const name = groupName.trim();
     if (!name || membersList.length === 0) return;
-    const g = addSplitGroup(name, membersList);
+    const openingBalances: Record<string, number> = {};
+    for (const m of membersList) {
+      const amt = parseSigned(newGroupOpening[m] ?? '');
+      if (amt !== 0) openingBalances[m] = amt;
+    }
+    const g = addSplitGroup(name, membersList, openingBalances);
     reload();
     setGroupName('');
     setMembersList([]);
+    setNewGroupOpening({});
     setSelectedId(g.id);
     setView('detail');
+  }
+
+  function startEditOpening(member: string) {
+    const cur = selectedGroup?.openingBalances?.[member] ?? 0;
+    setOpeningInput(cur === 0 ? '' : cur > 0 ? `+${cur}` : String(cur));
+    setEditingOpening(member);
+  }
+
+  function saveOpeningBalance() {
+    if (!selectedId || !editingOpening) return;
+    setOpeningBalance(selectedId, editingOpening, parseSigned(openingInput));
+    setEditingOpening(null);
+    reload();
   }
 
   function addMemberToNewGroup() {
@@ -107,7 +150,28 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
   function removeMemberFromGroup(name: string) {
     if (!selectedGroup) return;
-    updateSplitGroup(selectedGroup.id, { members: selectedGroup.members.filter(x => x !== name) });
+    const balance = calcBalances(selectedGroup)[name] ?? 0;
+    if (Math.round(balance) !== 0) {
+      alert(`Settle up with ${name} first — ${balance > 0 ? `they owe you ${fmt(balance)}` : `you owe them ${fmt(balance)}`}. Use 💸 Settle, then remove them.`);
+      openSettle(name, balance);
+      return;
+    }
+    removeMemberToFormer(selectedGroup.id, name);
+    reload();
+  }
+
+  // Clear a balance without any money moving ("let it go")
+  function forgiveBalance(person: string, balance: number) {
+    if (!selectedId || Math.round(balance) === 0) return;
+    addSplitEntry(selectedId, {
+      description: balance > 0 ? `Let it go — ${person}` : `${person} let it go`,
+      totalAmount: Math.abs(balance),
+      paidBy: balance > 0 ? person : 'me',
+      splitAmong: balance > 0 ? ['me'] : [person],
+      date: today(),
+      isSettlement: true,
+      isForgiven: true,
+    });
     reload();
   }
 
@@ -140,7 +204,23 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     setEntryDate(today());
     setEntryWalletId(wallets[0]?.id ?? '');
     setEntryCategoryId('');
+    setSplitMode('equal');
+    setCustomShares({});
     setView('new-entry');
+  }
+
+  // In custom mode the LAST selected person auto-gets whatever remains
+  function customAutoPerson(): string | null {
+    return entrySplitAmong.length > 1 ? entrySplitAmong[entrySplitAmong.length - 1] : null;
+  }
+
+  function customRemainder(): number {
+    const total = Number(entryAmount) || 0;
+    const auto = customAutoPerson();
+    const typed = entrySplitAmong
+      .filter(p => p !== auto)
+      .reduce((sum, p) => sum + (Number(customShares[p]) || 0), 0);
+    return total - typed;
   }
 
   function handleAddEntry() {
@@ -148,6 +228,20 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     if (!entryDesc.trim() || !amount || !selectedId || entrySplitAmong.length === 0) return;
     const group = groups.find(g => g.id === selectedId);
     if (!group) return;
+
+    let shares: Record<string, number> | undefined;
+    if (splitMode === 'custom' && entrySplitAmong.length > 1) {
+      const auto = customAutoPerson()!;
+      const remainder = customRemainder();
+      if (remainder < 0) {
+        alert('The shares add up to more than the bill. Please adjust the amounts.');
+        return;
+      }
+      shares = {};
+      for (const p of entrySplitAmong) {
+        shares[p] = p === auto ? remainder : (Number(customShares[p]) || 0);
+      }
+    }
 
     let linkedTransactionId: string | undefined;
     if (entryPaidBy === 'me') {
@@ -173,6 +267,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
       totalAmount: amount,
       paidBy: entryPaidBy,
       splitAmong: entrySplitAmong,
+      shares,
       date: entryDate,
       linkedTransactionId,
     });
@@ -180,7 +275,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     setView('detail');
   }
 
-  function openSettle(person: string, balance: number) {
+  function openSettle(person: string, balance: number, from: 'detail' | 'settle-pending' = 'detail') {
     setSettlePerson(person);
     setSettleAmount(String(Math.abs(balance)));
     // balance > 0: they owe me → default "they paid me"
@@ -188,6 +283,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
     setSettleDir(balance > 0 ? 'receive' : 'pay');
     setSettleWalletId(wallets[0]?.id ?? '');
     setSettleDate(today());
+    setSettleFrom(from);
     setView('settle');
   }
 
@@ -249,10 +345,19 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
 
     onExpenseAdded();
     reload();
-    setView('detail');
+    setView(settleFrom === 'settle-pending' ? 'settle-pending' : 'detail');
   }
 
   function handleMarkSettled(groupId: string) {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    const balances = calcBalances(group);
+    const hasPending = Object.values(balances).some(b => Math.round(b) !== 0);
+    if (hasPending) {
+      // Ask what happened to each pending balance before settling
+      setView('settle-pending');
+      return;
+    }
     if (!confirm('Mark this group as settled? It will move to Past Groups.')) return;
     settleGroup(groupId);
     reload();
@@ -271,7 +376,8 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
   }
 
   function goBack() {
-    if (view === 'settle' || view === 'new-entry') setView('detail');
+    if (view === 'settle') setView(settleFrom === 'settle-pending' ? 'settle-pending' : 'detail');
+    else if (view === 'new-entry' || view === 'settle-pending') setView('detail');
     else { setShowEditMembers(false); setView('list'); }
   }
 
@@ -299,6 +405,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             {view === 'new-group' && '➕ New Group'}
             {view === 'new-entry' && '➕ Add Expense'}
             {view === 'settle' && `💸 Settle with ${settlePerson}`}
+            {view === 'settle-pending' && '🧾 Pending Balances'}
           </h2>
           <button type="button" onClick={onClose}
             className="clay-btn w-10 h-10 rounded-[12px] text-stone-500 font-black shrink-0">✕</button>
@@ -366,9 +473,7 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
         {view === 'detail' && selectedGroup && (() => {
           // Settled: show only net expense
           if (selectedGroup.settled) {
-            const myNetExpense = selectedGroup.entries
-              .filter(e => !e.isSettlement && e.splitAmong.includes('me'))
-              .reduce((sum, e) => sum + e.totalAmount / e.splitAmong.length, 0);
+            const myNetExpense = myNetShare(selectedGroup);
             return (
               <div className="flex flex-col gap-3">
                 <div className="clay-green clay p-4 rounded-[16px] flex flex-col items-center gap-1 text-center">
@@ -440,23 +545,58 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 <p className="text-xs font-black text-stone-500 uppercase tracking-wide">Who owes who</p>
                 {selectedGroup.members.map(m => {
                   const b = balances[m] ?? 0;
+                  const opening = selectedGroup.openingBalances?.[m] ?? 0;
                   return (
-                    <div key={m} className="flex items-center justify-between py-0.5 gap-2">
-                      <span className="font-bold text-stone-700 min-w-0 truncate">{m}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {b === 0
-                          ? <span className="text-xs font-bold text-stone-400">All even ✓</span>
-                          : b > 0
-                          ? <span className="text-xs font-black text-emerald-600">owes you {fmt(b)}</span>
-                          : <span className="text-xs font-black text-rose-500">you owe {fmt(b)}</span>
-                        }
-                        {b !== 0 && (
-                          <button type="button" onClick={() => openSettle(m, b)}
-                            className="clay-btn clay-blue text-blue-900 text-xs font-black px-2.5 py-1 rounded-[8px]">
-                            💸 Settle
-                          </button>
-                        )}
+                    <div key={m} className="flex flex-col gap-1 py-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="font-bold text-stone-700 truncate">{m}</span>
+                          <button type="button" onClick={() => editingOpening === m ? setEditingOpening(null) : startEditOpening(m)}
+                            className="clay-btn text-stone-400 text-xs px-1 py-0.5 rounded-[6px] shrink-0"
+                            title="Edit opening balance">✏️</button>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {b === 0
+                            ? <span className="text-xs font-bold text-stone-400">All even ✓</span>
+                            : b > 0
+                            ? <span className="text-xs font-black text-emerald-600">owes you {fmt(b)}</span>
+                            : <span className="text-xs font-black text-rose-500">you owe {fmt(b)}</span>
+                          }
+                          {b !== 0 && (
+                            <button type="button" onClick={() => openSettle(m, b)}
+                              className="clay-btn clay-blue text-blue-900 text-xs font-black px-2.5 py-1 rounded-[8px]">
+                              💸 Settle
+                            </button>
+                          )}
+                        </div>
                       </div>
+                      {opening !== 0 && editingOpening !== m && (
+                        <p className="text-[10px] font-semibold text-stone-400">
+                          incl. opening balance{' '}
+                          <span className={opening > 0 ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'}>
+                            {opening > 0 ? '+' : '-'}{fmt(opening)}
+                          </span>
+                        </p>
+                      )}
+                      {editingOpening === m && (
+                        <div className="flex flex-col gap-1.5 clay px-2.5 py-2 rounded-[10px]">
+                          <p className="text-[11px] font-semibold text-stone-400">
+                            Opening balance — <span className="text-emerald-600 font-bold">+100</span> they owe you, <span className="text-rose-500 font-bold">-100</span> you owe them
+                          </p>
+                          <div className="flex gap-2">
+                            <input autoFocus type="text" inputMode="text" value={openingInput}
+                              onChange={e => setOpeningInput(sanitizeSigned(e.target.value))}
+                              onKeyDown={e => { if (e.key === 'Enter') saveOpeningBalance(); if (e.key === 'Escape') setEditingOpening(null); }}
+                              placeholder="+100 or -100"
+                              className="clay flex-1 min-w-0 px-2 py-1.5 font-bold text-stone-700 text-sm bg-transparent outline-none placeholder:text-stone-300"
+                            />
+                            <button type="button" onClick={saveOpeningBalance}
+                              className="clay-btn clay-green clay px-2.5 py-1.5 font-black text-emerald-900 rounded-[8px] text-xs">Save</button>
+                            <button type="button" onClick={() => setEditingOpening(null)}
+                              className="clay-btn px-2.5 py-1.5 font-black text-stone-500 rounded-[8px] text-xs bg-stone-100 border border-stone-200">✕</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -496,6 +636,16 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                     </div>
                   </div>
                 )}
+                {(selectedGroup.formerMembers?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-stone-100">
+                    <span className="text-[10px] font-black text-stone-300 uppercase tracking-wide">Left group:</span>
+                    {selectedGroup.formerMembers!.map(m => (
+                      <span key={m} className="text-[10px] font-bold px-1.5 py-0.5 rounded-[6px] bg-stone-100 text-stone-400">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Entries */}
@@ -507,11 +657,15 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                       className={`clay p-3 flex flex-col gap-1 ${e.isSettlement ? 'border border-teal-100' : ''}`}>
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-black text-stone-800 text-sm">
-                          {e.isSettlement ? '💸 ' : ''}{e.description}
+                          {e.isSettlement ? (e.isForgiven ? '🕊️ ' : '💸 ') : ''}{e.description}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`font-black text-sm ${e.isSettlement ? (e.paidBy === 'me' ? 'text-rose-500' : 'text-emerald-600') : 'text-stone-700'}`}>
-                            {e.isSettlement && (e.paidBy === 'me' ? '-' : '+')}
+                          <span className={`font-black text-sm ${
+                            e.isForgiven ? 'text-stone-400 line-through'
+                            : e.isSettlement ? (e.paidBy === 'me' ? 'text-rose-500' : 'text-emerald-600')
+                            : 'text-stone-700'
+                          }`}>
+                            {e.isSettlement && !e.isForgiven && (e.paidBy === 'me' ? '-' : '+')}
                             {fmt(e.totalAmount)}
                           </span>
                           <button type="button" onClick={() => handleDeleteEntry(selectedGroup.id, e.id)}
@@ -519,11 +673,25 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                         </div>
                       </div>
                       {!e.isSettlement && (
-                        <p className="text-xs font-semibold text-stone-400">
-                          {e.paidBy === 'me' ? 'You paid' : `${e.paidBy} paid`}
-                          {' · '}split {e.splitAmong.length} ways
-                          {' · '}each {fmt(e.totalAmount / e.splitAmong.length)}
-                        </p>
+                        <>
+                          <p className="text-xs font-semibold text-stone-400">
+                            {e.paidBy === 'me' ? 'You paid' : `${e.paidBy} paid`}
+                            {' · '}split {e.splitAmong.length} ways{e.shares ? ' (custom)' : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {e.splitAmong.map(p => {
+                              const former = (selectedGroup.formerMembers ?? []).includes(p);
+                              return (
+                                <span key={p}
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[6px] ${
+                                    former ? 'bg-stone-100 text-stone-400 line-through' : 'bg-violet-50 text-violet-700'
+                                  }`}>
+                                  {p === 'me' ? 'Me' : p} {fmt(shareOf(e, p))}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </>
                       )}
                       <p className="text-[10px] font-semibold text-stone-300">{e.date}</p>
                     </div>
@@ -640,6 +808,60 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
           </div>
         )}
 
+        {/* ── SETTLE PENDING VIEW (before marking group settled) ── */}
+        {view === 'settle-pending' && selectedGroup && (() => {
+          const balances = calcBalances(selectedGroup);
+          const pending = selectedGroup.members.filter(m => Math.round(balances[m] ?? 0) !== 0);
+          const allClear = pending.length === 0;
+          return (
+            <div className="flex flex-col gap-3">
+              <div className="clay-amber clay rounded-[12px] px-3 py-2.5">
+                <p className="text-xs font-bold text-amber-800">
+                  {allClear
+                    ? '🎉 All balances are clear — you can settle the group now.'
+                    : 'Before settling the group, tell me what happened to each pending balance.'}
+                </p>
+              </div>
+
+              {pending.map(m => {
+                const b = balances[m] ?? 0;
+                return (
+                  <div key={m} className="clay p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-stone-800">{m}</span>
+                      <span className={`text-xs font-black ${b > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        {b > 0 ? `owes you ${fmt(b)}` : `you owe ${fmt(b)}`}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => openSettle(m, b, 'settle-pending')}
+                        className="clay-btn clay-blue clay flex-1 py-2 font-black text-blue-900 rounded-[10px] text-sm">
+                        💸 {b > 0 ? 'They paid' : 'I paid'} — record it
+                      </button>
+                      <button type="button" onClick={() => forgiveBalance(m, b)}
+                        className="clay-btn flex-1 py-2 font-bold text-stone-500 rounded-[10px] text-sm bg-stone-100 border border-stone-200">
+                        🕊️ Let it go
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button type="button"
+                onClick={() => {
+                  if (!allClear) return;
+                  settleGroup(selectedGroup.id);
+                  reload();
+                  setView('list');
+                }}
+                disabled={!allClear}
+                className="clay-btn clay-green clay py-3 font-black text-emerald-900 text-center rounded-[14px] disabled:opacity-40">
+                ✓ Mark Group as Settled
+              </button>
+            </div>
+          );
+        })()}
+
         {/* ── NEW GROUP VIEW ── */}
         {view === 'new-group' && (
           <div className="flex flex-col gap-3">
@@ -657,12 +879,30 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                 💡 You (Me) are always included — only add the others here.
               </p>
               {membersList.map(m => (
-                <div key={m} className="flex items-center justify-between clay px-3 py-2 rounded-[10px]">
-                  <span className="font-bold text-stone-700">{m}</span>
-                  <button type="button" onClick={() => setMembersList(prev => prev.filter(x => x !== m))}
-                    className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">Remove</button>
+                <div key={m} className="clay px-3 py-2 rounded-[10px] flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-stone-700">{m}</span>
+                    <button type="button" onClick={() => {
+                      setMembersList(prev => prev.filter(x => x !== m));
+                      setNewGroupOpening(prev => { const p = { ...prev }; delete p[m]; return p; });
+                    }}
+                      className="clay-btn text-rose-400 text-xs px-1.5 py-0.5 rounded-[6px]">Remove</button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-stone-400 shrink-0">Opening balance</span>
+                    <input type="text" inputMode="text" value={newGroupOpening[m] ?? ''}
+                      onChange={e => setNewGroupOpening(prev => ({ ...prev, [m]: sanitizeSigned(e.target.value) }))}
+                      placeholder="+100 or -100"
+                      className="clay flex-1 px-2 py-1.5 font-bold text-stone-700 text-sm text-right bg-transparent outline-none placeholder:text-stone-300"
+                    />
+                  </div>
                 </div>
               ))}
+              {membersList.length > 0 && (
+                <p className="text-[11px] font-semibold text-stone-400">
+                  💡 Old pending balance? <span className="text-emerald-600 font-bold">+100</span> = they owe you, <span className="text-rose-500 font-bold">-100</span> = you owe them. Leave blank if starting fresh.
+                </p>
+              )}
               <div className="flex gap-2">
                 <input type="text" value={memberInput}
                   onChange={e => setMemberInput(e.target.value)}
@@ -733,10 +973,60 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
                   </button>
                 ))}
               </div>
-              {entryAmount && entrySplitAmong.length > 0 && (
+              {/* Equal / Custom selector */}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setSplitMode('equal')}
+                  className={`clay-btn flex-1 py-2 rounded-[10px] font-bold text-sm ${
+                    splitMode === 'equal' ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                  }`}>
+                  ⚖️ Equal
+                </button>
+                <button type="button" onClick={() => setSplitMode('custom')}
+                  disabled={entrySplitAmong.length < 2}
+                  className={`clay-btn flex-1 py-2 rounded-[10px] font-bold text-sm disabled:opacity-40 ${
+                    splitMode === 'custom' ? 'clay-purple text-violet-900' : 'bg-stone-100 text-stone-500 border border-stone-200 shadow-none'
+                  }`}>
+                  ✏️ Custom
+                </button>
+              </div>
+
+              {splitMode === 'equal' && entryAmount && entrySplitAmong.length > 0 && (
                 <p className="text-xs font-semibold text-violet-600">
                   {fmt(Number(entryAmount) / entrySplitAmong.length)} per person ({entrySplitAmong.length} people)
                 </p>
+              )}
+
+              {splitMode === 'custom' && entrySplitAmong.length > 1 && (
+                <div className="flex flex-col gap-2 pt-1">
+                  {entrySplitAmong.map(p => {
+                    const isAuto = p === customAutoPerson();
+                    return (
+                      <div key={p} className="flex items-center gap-2">
+                        <span className="font-bold text-stone-700 text-sm flex-1 truncate">{p === 'me' ? 'Me' : p}</span>
+                        <span className="font-black text-stone-400 text-sm">₹</span>
+                        {isAuto ? (
+                          <span className={`w-24 px-3 py-2 rounded-[10px] font-black text-sm text-right bg-stone-100 ${
+                            customRemainder() < 0 ? 'text-rose-500' : 'text-stone-500'
+                          }`}>
+                            {customRemainder().toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <input type="text" inputMode="decimal"
+                            value={customShares[p] ?? ''}
+                            onChange={e => setCustomShares(prev => ({ ...prev, [p]: e.target.value.replace(/[^\d.]/g, '') }))}
+                            placeholder="0"
+                            className="clay w-24 px-3 py-2 font-black text-stone-700 text-sm text-right bg-transparent outline-none placeholder:text-stone-400"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                  <p className={`text-[11px] font-semibold ${customRemainder() < 0 ? 'text-rose-500' : 'text-stone-400'}`}>
+                    {customRemainder() < 0
+                      ? '⚠️ Shares are more than the bill — reduce someone\'s amount'
+                      : `${customAutoPerson() === 'me' ? 'Me' : customAutoPerson()} automatically gets the rest`}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -788,6 +1078,14 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
               />
             </div>
 
+            {entryPaidBy === 'me' && entryAmount && !entrySplitAmong.includes('me') && entrySplitAmong.length > 0 && (
+              <div className="clay-blue clay rounded-[12px] px-3 py-2.5">
+                <p className="text-xs font-bold text-blue-800">
+                  🤝 You&apos;re paying on behalf of {entrySplitAmong.join(', ')} — they&apos;ll owe you the full ₹{Number(entryAmount).toLocaleString('en-IN')}.
+                </p>
+              </div>
+            )}
+
             {entryPaidBy === 'me' && entryAmount && (
               <div className="clay-amber clay rounded-[12px] px-3 py-2.5">
                 <p className="text-xs font-bold text-amber-800">
@@ -797,10 +1095,17 @@ export default function SplitTab({ onClose, onExpenseAdded, initialGroupId }: Pr
             )}
 
             <button type="button" onClick={handleAddEntry}
-              disabled={!entryDesc.trim() || !entryAmount || entrySplitAmong.length === 0}
+              disabled={!entryDesc.trim() || !entryAmount || entrySplitAmong.length === 0 || (splitMode === 'custom' && customRemainder() < 0)}
               className="clay-btn clay-purple clay py-3 font-black text-violet-900 text-center rounded-[14px] disabled:opacity-40">
               Add Expense ✓
             </button>
+            {(!entryDesc.trim() || !entryAmount || entrySplitAmong.length === 0) && (
+              <p className="text-[11px] font-semibold text-rose-400 text-center -mt-1">
+                {!entryDesc.trim() ? '✍️ Fill in "What was it?" above to add this expense'
+                  : !entryAmount ? '✍️ Enter the bill amount to continue'
+                  : '✍️ Select at least one person to split among'}
+              </p>
+            )}
           </div>
         )}
       </div>

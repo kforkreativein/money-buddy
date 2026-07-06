@@ -42,6 +42,10 @@ create table if not exists public.wallets (
   emoji text not null default '💳',
   opening_balance numeric,
   min_balance numeric,
+  is_credit_card boolean not null default false,
+  credit_limit numeric,
+  statement_day integer,
+  due_day integer,
   primary key (user_id, id)
 );
 
@@ -98,6 +102,25 @@ create table if not exists public.recurring_rules (
 alter table public.recurring_rules enable row level security;
 create policy "recurring_all_own" on public.recurring_rules for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- Split groups (entries stored as JSON — mirrors localStorage shape)
+create table if not exists public.split_groups (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  members jsonb not null default '[]',
+  former_members jsonb not null default '[]',
+  opening_balances jsonb not null default '{}',
+  entries jsonb not null default '[]',
+  settled boolean not null default false,
+  settled_at bigint,
+  created_at bigint not null,
+  pinned boolean not null default false,
+  primary key (user_id, id)
+);
+
+alter table public.split_groups enable row level security;
+create policy "splits_all_own" on public.split_groups for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- Savings goal (one row per user)
 create table if not exists public.savings_goals (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -116,7 +139,9 @@ create table if not exists public.user_settings (
   streak_count integer not null default 0,
   last_visit_date text,
   wallet_order text,
-  notifications_enabled boolean not null default false
+  notifications_enabled boolean not null default false,
+  credit_cards_enabled boolean not null default false,
+  split_enabled boolean not null default false
 );
 
 alter table public.user_settings enable row level security;
@@ -145,3 +170,12 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ── Migration: run this block if the database was created before credit cards & splits ──
+alter table public.wallets add column if not exists is_credit_card boolean not null default false;
+alter table public.wallets add column if not exists credit_limit numeric;
+alter table public.wallets add column if not exists statement_day integer;
+alter table public.wallets add column if not exists due_day integer;
+alter table public.user_settings add column if not exists credit_cards_enabled boolean not null default false;
+alter table public.user_settings add column if not exists split_enabled boolean not null default false;
+alter table public.split_groups add column if not exists opening_balances jsonb not null default '{}';
