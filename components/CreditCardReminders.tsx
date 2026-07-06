@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Transaction } from '@/lib/types';
 import { getWallets, walletNetBalance } from '@/lib/wallets';
 import { userStorageKey } from '@/lib/auth';
+import { scheduleCloudSync } from '@/lib/supabase/sync';
 import { notificationsEnabled, showNotification } from '@/lib/notifications';
 import { fmt } from '@/lib/insights';
 
@@ -27,6 +28,7 @@ function loadSet(key: string): Set<string> {
 }
 function saveSet(key: string, set: Set<string>) {
   localStorage.setItem(userStorageKey(key), JSON.stringify([...set]));
+  scheduleCloudSync();
 }
 
 function computeReminders(transactions: Transaction[]): Reminder[] {

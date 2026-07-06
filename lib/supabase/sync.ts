@@ -267,6 +267,12 @@ export async function pullFromCloud(): Promise<boolean> {
   if (setRes.data?.split_enabled != null) {
     localStorage.setItem('money_buddy_split_enabled', setRes.data.split_enabled ? 'true' : 'false');
   }
+  if (Array.isArray(setRes.data?.cc_reminders_dismissed) && setRes.data.cc_reminders_dismissed.length) {
+    localStorage.setItem(userKey('money_buddy_cc_reminders_dismissed', userId), JSON.stringify(setRes.data.cc_reminders_dismissed));
+  }
+  if (Array.isArray(setRes.data?.cc_reminders_notified) && setRes.data.cc_reminders_notified.length) {
+    localStorage.setItem(userKey('money_buddy_cc_reminders_notified', userId), JSON.stringify(setRes.data.cc_reminders_notified));
+  }
 
   return true;
 }
@@ -467,7 +473,13 @@ export async function pushToCloud(): Promise<boolean> {
     if (error) throw error;
   }
 
-  const { error: setErr } = await supabase.from('user_settings').upsert({
+  const readJsonArray = (base: string): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem(userKey(base, userId)) ?? '[]');
+    } catch { return []; }
+  };
+
+  const baseSettings = {
     user_id: userId,
     monthly_budget: local.budget,
     onboarding_done: local.onboardingDone,
@@ -487,7 +499,17 @@ export async function pushToCloud(): Promise<boolean> {
     notifications_enabled: localStorage.getItem(userKey('money_buddy_notifications', userId)) === '1',
     credit_cards_enabled: localStorage.getItem('money_buddy_credit_cards_enabled') === 'true',
     split_enabled: localStorage.getItem('money_buddy_split_enabled') === 'true',
+  };
+
+  let { error: setErr } = await supabase.from('user_settings').upsert({
+    ...baseSettings,
+    cc_reminders_dismissed: readJsonArray('money_buddy_cc_reminders_dismissed'),
+    cc_reminders_notified: readJsonArray('money_buddy_cc_reminders_notified'),
   });
+  if (setErr) {
+    // Reminder columns may not exist yet (migration not run) — retry without them
+    ({ error: setErr } = await supabase.from('user_settings').upsert(baseSettings));
+  }
   if (setErr) throw setErr;
 
   return true;

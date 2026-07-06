@@ -141,7 +141,9 @@ create table if not exists public.user_settings (
   wallet_order text,
   notifications_enabled boolean not null default false,
   credit_cards_enabled boolean not null default false,
-  split_enabled boolean not null default false
+  split_enabled boolean not null default false,
+  cc_reminders_dismissed jsonb not null default '[]',
+  cc_reminders_notified jsonb not null default '[]'
 );
 
 alter table public.user_settings enable row level security;
@@ -180,3 +182,5 @@ alter table public.user_settings add column if not exists credit_cards_enabled b
 alter table public.user_settings add column if not exists split_enabled boolean not null default false;
 alter table public.split_groups add column if not exists former_members jsonb not null default '[]';
 alter table public.split_groups add column if not exists opening_balances jsonb not null default '{}';
+alter table public.user_settings add column if not exists cc_reminders_dismissed jsonb not null default '[]';
+alter table public.user_settings add column if not exists cc_reminders_notified jsonb not null default '[]';
