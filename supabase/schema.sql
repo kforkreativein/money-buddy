@@ -178,4 +178,5 @@ alter table public.wallets add column if not exists statement_day integer;
 alter table public.wallets add column if not exists due_day integer;
 alter table public.user_settings add column if not exists credit_cards_enabled boolean not null default false;
 alter table public.user_settings add column if not exists split_enabled boolean not null default false;
+alter table public.split_groups add column if not exists former_members jsonb not null default '[]';
 alter table public.split_groups add column if not exists opening_balances jsonb not null default '{}';

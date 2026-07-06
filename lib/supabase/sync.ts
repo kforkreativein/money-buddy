@@ -115,7 +115,11 @@ export async function pullFromCloud(): Promise<boolean> {
     supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
   ]);
 
-  if (txRes.error) throw txRes.error;
+  // Abort the whole pull if any query failed — an error must never look like "no data",
+  // otherwise local data would be overwritten with an empty list
+  const queryError = txRes.error || walRes.error || catRes.error || trRes.error
+    || recRes.error || goalRes.error || setRes.error;
+  if (queryError) throw queryError;
 
   const transactions: Transaction[] = (txRes.data ?? []).map(r => ({
     id: r.id,
@@ -198,19 +202,32 @@ export async function pullFromCloud(): Promise<boolean> {
     ? { target: goalRes.data.target, label: goalRes.data.label }
     : null;
 
-  const cloudData = {
-    transactions,
-    wallets,
-    categories,
-    transfers,
-    recurring,
-    splits,
-    goal,
-    budget: setRes.data?.monthly_budget ?? 0,
-    onboardingDone: setRes.data?.onboarding_done ?? false,
+  // Never let an empty cloud collection erase local data (freshly created table,
+  // or a sync that failed before ever uploading) — keep local and re-upload instead.
+  // Data only leaves a collection when the cloud still has other rows in it,
+  // i.e. a genuine single-item deletion made on another device.
+  let keptLocal = keepLocalSplits && splits.length > 0;
+  const keepIfCloudEmpty = <T>(cloud: T[], local: T[]): T[] => {
+    if (cloud.length === 0 && local.length > 0) {
+      keptLocal = true;
+      return local;
+    }
+    return cloud;
   };
 
-  const cloudEmpty = !hasMeaningfulData(cloudData);
+  const cloudData = {
+    transactions: keepIfCloudEmpty(transactions, localBeforePull.transactions),
+    wallets: keepIfCloudEmpty(wallets, localBeforePull.wallets),
+    categories: keepIfCloudEmpty(categories, localBeforePull.categories),
+    transfers: keepIfCloudEmpty(transfers, localBeforePull.transfers),
+    recurring: keepIfCloudEmpty(recurring, localBeforePull.recurring),
+    splits,
+    goal: goal ?? localBeforePull.goal,
+    budget: setRes.data?.monthly_budget ?? localBeforePull.budget,
+    onboardingDone: (setRes.data?.onboarding_done ?? false) || localBeforePull.onboardingDone,
+  };
+
+  const cloudEmpty = !hasMeaningfulData({ transactions, categories, transfers, recurring, splits, goal });
   const localHasData = hasMeaningfulData(localBeforePull);
 
   // Never wipe local entries when Supabase is empty (failed sync, grace period, new account).
@@ -222,8 +239,8 @@ export async function pullFromCloud(): Promise<boolean> {
 
   writeLocal(userId, cloudData);
 
-  // Cloud split table was missing/empty — upload the local groups we kept
-  if (keepLocalSplits && splits.length > 0) {
+  // Some cloud collections were missing/empty — upload the local data we kept
+  if (keptLocal) {
     scheduleCloudSync();
   }
 
